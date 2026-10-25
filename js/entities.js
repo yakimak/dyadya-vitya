@@ -35,40 +35,66 @@ class Player {
     this.attackCooldown = 0;
     this.attackStarted = false;
     this.knockback = 0;
+    this.pixelMode = GRAPHICS_MODE === 'pixel';
 
-    const art = buildVitya();
+    let art;
+    if (this.pixelMode) {
+      art = buildPixelCharacter('vitya');
+      this.pixelFrames = art.frames;
+      this.pixelAnims = art.anims || { idle: art.frames, run: art.frames, jump: art.frames, attack: art.frames };
+      this.pixelAnimName = 'idle';
+      this.pixelAnimT = 0;
+      this.pixelSprite = art.sprite;
+    } else {
+      art = buildVitya();
+    }
     this.art = art;
     this.container = art.root;
     this.container.x = this.x + this.w / 2;
     this.container.y = this.y + this.h;
     this.container.scale.x = this.dir;
 
-    // мягкий свет от фонаря вокруг героя
-    this.aura = softGlow(0xffb45e, 420, 0.10);
-    this.aura.y = -24;
-    this.container.addChildAt(this.aura, 1);
+    if (this.pixelMode) {
+      this.aura = new PIXI.Sprite(PixelArt.lampGlowTex());
+      this.aura.anchor.set(0.5);
+      this.aura.tint = 0xffb45e;
+      this.aura.scale.set(4);
+      this.aura.alpha = 0.13;
+      this.aura.y = -26;
+      this.container.addChildAt(this.aura, 0);
+    } else {
+      // мягкий свет от фонаря вокруг героя
+      this.aura = softGlow(0xffb45e, 420, 0.10);
+      this.aura.y = -24;
+      this.container.addChildAt(this.aura, 1);
+    }
 
     this.totalTime = 0;
 
-    // метла — отцовская, для обороны и от ворон
-    this.broom = new PIXI.Container();
-    const bg = new PIXI.Graphics();
-    line(bg, 0, 0, 30, -26, 4, 0x6a4b2f);
-    line(bg, 30, -26, 40, -38, 3, 0x7d5a37);
-    // щетина
-    bg.lineStyle(1.6, 0xb59a63, 0.95);
-    for (let i = 0; i < 7; i++) {
-      bg.moveTo(39, -37);
-      bg.lineTo(47 + (i % 3) * 4, -46 - (i % 4) * 4);
+    if (this.pixelMode) {
+      // В пиксельном режиме метла/посох уже в кадре атаки и ходьбы.
+      this.broom = null;
+    } else {
+      // метла — отцовская, для обороны и от ворон
+      this.broom = new PIXI.Container();
+      const bg = new PIXI.Graphics();
+      line(bg, 0, 0, 30, -26, 4, 0x6a4b2f);
+      line(bg, 30, -26, 40, -38, 3, 0x7d5a37);
+      // щетина
+      bg.lineStyle(1.6, 0xb59a63, 0.95);
+      for (let i = 0; i < 7; i++) {
+        bg.moveTo(39, -37);
+        bg.lineTo(47 + (i % 3) * 4, -46 - (i % 4) * 4);
+      }
+      bg.beginFill(0x8b6d43, 0.9);
+      bg.drawEllipse(43, -40, 15, 8);
+      bg.endFill();
+      this.broom.addChild(bg);
+      this.broom.x = 12; this.broom.y = -17;
+      this.broom.rotation = -1.4;
+      this.broom.visible = false;
+      this.container.addChild(this.broom);
     }
-    bg.beginFill(0x8b6d43, 0.9);
-    bg.drawEllipse(43, -40, 15, 8);
-    bg.endFill();
-    this.broom.addChild(bg);
-    this.broom.x = 12; this.broom.y = -17;
-    this.broom.rotation = -1.4;
-    this.broom.visible = false;
-    this.container.addChild(this.broom);
   }
 
   setUpgrades(upgrades) {
@@ -232,11 +258,52 @@ class Player {
     this.animate(dt, t);
   }
 
+  animatePixel(dt, t) {
+    this.container.x = Math.round(this.cx);
+    this.container.y = Math.round(this.feet);
+    this.container.scale.x = this.dir;
+
+    const moving = Math.abs(this.vx) > 20 && this.onGround;
+    const air = !this.onGround;
+    const anims = this.pixelAnims || { idle: this.pixelFrames, run: this.pixelFrames, jump: this.pixelFrames, attack: this.pixelFrames };
+    const name = this.attackTimer > 0 ? 'attack' : air ? 'jump' : moving ? 'run' : 'idle';
+    const frames = anims[name] || anims.idle;
+
+    if (name !== this.pixelAnimName) {
+      this.pixelAnimName = name;
+      this.pixelAnimT = 0;
+    }
+    this.pixelAnimT += dt;
+    let idx;
+    if (name === 'attack') {
+      const k = U.clamp(1 - this.attackTimer / 0.3, 0, 1);
+      idx = Math.min(frames.length - 1, Math.floor(k * frames.length));
+    } else if (name === 'jump') {
+      idx = Math.floor(this.pixelAnimT * 10) % frames.length;
+    } else if (name === 'run') {
+      idx = Math.floor(this.pixelAnimT * 12) % frames.length;
+    } else {
+      idx = Math.floor(this.pixelAnimT * 4) % frames.length;
+    }
+    this.pixelSprite.texture = frames[idx];
+
+    const bob = moving ? Math.sin(this.phase * 2) * 1.2 : Math.sin(t * 2.1) * 0.5;
+    this.pixelSprite.y = Math.round(bob - (air ? 1 : 0));
+    this.pixelSprite.scale.set(2, 2);
+    this.pixelSprite.rotation = 0;
+
+    if (this.invuln > 0) this.container.alpha = Math.sin(t * 42) > 0 ? 0.62 : 1;
+    else this.container.alpha = 1;
+
+    if (this.aura) this.aura.alpha = 0.10 + Math.sin(t * 2.2) * 0.025;
+  }
+
   overlaps(s) {
     return this.x < s.x + s.w && this.x + this.w > s.x && this.y < s.y + s.h && this.y + this.h > s.y;
   }
 
   animate(dt, t) {
+    if (this.pixelMode) { this.animatePixel(dt, t); return; }
     const a = this.art;
     this.container.x = this.cx;
     this.container.y = this.feet;
@@ -337,9 +404,19 @@ class NPC {
     this.walkTargetX = null;
     this.walkSpeed = 60;
     this.fade = 1;
+    this.pixelMode = GRAPHICS_MODE === 'pixel';
 
-    const builders = { vitya: buildVitya, zina: buildZina, stas: buildStas, grisha: buildGrisha, boris: buildBorisych, pavel: buildPavel, klava: buildKlava, arkady: buildArkady };
-    const built = (builders[this.kind] || buildZina)();
+    let built;
+    if (this.pixelMode) {
+      built = buildPixelCharacter(this.kind);
+      this.pixelFrames = built.frames;
+      this.pixelAnims = built.anims || { idle: built.frames, run: built.frames };
+      this.pixelAnimT = 0;
+      this.pixelSprite = built.sprite;
+    } else {
+      const builders = { vitya: buildVitya, zina: buildZina, stas: buildStas, grisha: buildGrisha, boris: buildBorisych, pavel: buildPavel, klava: buildKlava, arkady: buildArkady };
+      built = (builders[this.kind] || buildZina)();
+    }
     this.art = built;
     this.container = built.root;
     this.container.x = this.x;
@@ -353,8 +430,38 @@ class NPC {
 
   get cx() { return this.x; }
 
+  updatePixel(dt, t) {
+    const a = this.pixelSprite;
+    const anims = this.pixelAnims || { idle: this.pixelFrames, run: this.pixelFrames };
+    let frames = anims.idle;
+    let fps = 4;
+    if (this.walking) {
+      const dir = Math.sign(this.walkTargetX - this.x) || 1;
+      this.x += dir * this.walkSpeed * dt;
+      this.container.scale.x = dir;
+      frames = anims.run || anims.idle;
+      fps = 10;
+      if (Math.abs(this.x - this.walkTargetX) < 4) {
+        this.walking = false;
+        this.x = this.walkTargetX;
+        this.fadeOut = true;
+      }
+    }
+    this.pixelAnimT += dt;
+    a.texture = frames[Math.floor(this.pixelAnimT * fps + this.phase) % frames.length];
+    a.y = Math.round(this.walking ? Math.abs(Math.sin(t * 9)) * -1 : Math.sin(t * 1.5 + this.phase) * 0.7);
+    if (this.fadeOut) {
+      this.fade -= dt * 1.4;
+      this.container.alpha = Math.max(0, this.fade) * (this.def.alpha === undefined ? 1 : this.def.alpha);
+      if (this.fade <= 0) this.gone = true;
+    }
+    this.container.x = Math.round(this.x);
+    this.container.y = Math.round(this.y);
+  }
+
   update(dt, t) {
     this.phase += dt;
+    if (this.pixelMode) { this.updatePixel(dt, t); return; }
     const a = this.art;
     if (!a) return;
 
@@ -430,6 +537,22 @@ class CheckpointLantern {
     this.container.x = x;
     this.container.y = groundY;
 
+    this.pixelMode = GRAPHICS_MODE === 'pixel';
+    if (this.pixelMode) {
+      this.post = PixelArt.sprite(PixelArt.checkpointTex(false), 0, 0, 2, 0.5, 1);
+      this.container.addChild(this.post);
+      this.glow = PixelArt.sprite(PixelArt.lampGlowTex(), 0, -54, 2, 0.5, 0.5);
+      this.glow.alpha = 0;
+      this.container.addChild(this.glow);
+      this.pool = PixelArt.sprite(PixelArt.lampGlowTex(), 0, -2, 2, 0.5, 0.5);
+      this.pool.scale.y = 1.4;
+      this.pool.alpha = 0;
+      this.container.addChild(this.pool);
+      this.spark = new PIXI.Container();
+      this.container.addChild(this.spark);
+      return;
+    }
+
     const g = new PIXI.Graphics();
     drawLanternPost(g, 0, 0, false);
     this.post = g;
@@ -454,6 +577,25 @@ class CheckpointLantern {
   light(silent) {
     if (this.lit) return false;
     this.lit = true;
+    if (this.pixelMode) {
+      this.post.texture = PixelArt.checkpointTex(true);
+      this.glow.alpha = 0.55;
+      this.pool.alpha = 0.24;
+      this.spark.removeChildren();
+      for (let i = 0; i < 10; i++) {
+        const s = PixelArt.sprite(PixelArt.sparkTex(), 0, -54, 2, 0.5, 0.5);
+        s.tint = i % 2 ? 0xffd995 : 0xffa64a;
+        s.vx = (Math.random() - 0.5) * 34;
+        s.vy = -12 - Math.random() * 30;
+        s.life = 1.2;
+        this.spark.addChild(s);
+      }
+      if (!silent) {
+        this.world.game.audio.sfx('checkpoint');
+        this.world.game.ui.toast('Фонарь зажжён', 'контрольная точка', 0xffcf8a);
+      }
+      return true;
+    }
     // перерисовать яркий фонарь
     this.post.clear();
     drawLanternPost(this.post, 0, 0, true);
@@ -478,6 +620,22 @@ class CheckpointLantern {
   }
 
   update(dt, t) {
+    if (this.pixelMode) {
+      if (this.lit) {
+        this.glow.alpha = 0.46 + Math.sin(t * 3.4 + this.pulse) * 0.08;
+        this.pool.alpha = 0.20 + Math.sin(t * 2.1 + this.pulse) * 0.03;
+        for (let i = this.spark.children.length - 1; i >= 0; i--) {
+          const s = this.spark.children[i];
+          s.life -= dt;
+          s.x += s.vx * dt;
+          s.y += s.vy * dt;
+          s.vy += 10 * dt;
+          s.alpha = Math.max(0, s.life / 1.2) * 0.65;
+          if (s.life <= 0) this.spark.removeChild(s);
+        }
+      }
+      return;
+    }
     if (this.lit) {
       this.glow.alpha = 0.5 + Math.sin(t * 3.4 + this.pulse) * 0.08;
       this.pool.alpha = 0.22 + Math.sin(t * 2.1 + this.pulse) * 0.03;
@@ -513,6 +671,31 @@ class Collectible {
     this.container = new PIXI.Container();
     this.container.x = x;
     this.container.y = y;
+
+    this.pixelMode = GRAPHICS_MODE === 'pixel';
+    if (this.pixelMode) {
+      const meta = ITEM_INFO[type] || ITEM_INFO.hop;
+      this.halo = new PIXI.Sprite(PixelArt.lampGlowTex());
+      this.halo.anchor.set(0.5);
+      this.halo.tint = meta.color;
+      this.halo.scale.set(2);
+      this.halo.alpha = 0.28;
+      this.container.addChild(this.halo);
+      this.ring = new PIXI.Graphics();
+      this.container.addChild(this.ring);
+      this.art = new PIXI.Container();
+      const icon = PixelArt.sprite(PixelArt.itemTex(type), 0, 0, 2, 0.5, 0.5);
+      this.art.addChild(icon);
+      this.container.addChild(this.art);
+      this.sparkles = [];
+      for (let i = 0; i < 3; i++) {
+        const sp = PixelArt.sprite(PixelArt.sparkTex(), 0, 0, 2, 0.5, 0.5);
+        sp.tint = meta.color;
+        this.container.addChild(sp);
+        this.sparkles.push(sp);
+      }
+      return;
+    }
 
     const colors = {
       honey: 0xffb35c, hop: 0xc0cf82, water: 0x9cdcea,
@@ -577,14 +760,14 @@ class Collectible {
     if (this.collected) {
       this.collectT += dt;
       const k = U.easeOutCubic(Math.min(1, this.collectT / 0.35));
-      this.container.scale.set(1 + k * 0.8, 1 + k * 0.8);
+      this.container.scale.set(1, 1);
       this.container.alpha = 1 - k;
-      this.container.y = this.baseY - k * 24;
+      this.container.y = Math.round(this.baseY - k * 24);
       if (this.collectT > 0.4) this.container.visible = false;
       return;
     }
     const bob = Math.sin(t * 2.0 + this.phase) * 4.5;
-    this.container.y = this.baseY + bob;
+    this.container.y = Math.round(this.baseY + bob);
     this.container.rotation = Math.sin(t * 0.9 + this.phase) * 0.035;
     this.halo.alpha = 0.28 + Math.sin(t * 2.4 + this.phase) * 0.06;
     this.sparkles.forEach((s, i) => {
@@ -636,8 +819,20 @@ class Enemy {
     this.container.y = this.y;
     this.art = new PIXI.Container();
     this.container.addChild(this.art);
+    this.pixelMode = GRAPHICS_MODE === 'pixel';
     if (kind === 'thug') this.buildThug();
     else this.buildCrow();
+    if (this.pixelMode) {
+      this.art.visible = false;
+      if (kind === 'thug') {
+        const p = buildPixelCharacter('thug');
+        this.pixelSprite = p.sprite;
+        this.container.addChild(p.root);
+      } else {
+        this.pixelSprite = PixelArt.sprite(PixelArt.crowTex(), 0, -20, 2, 0.5, 0.5);
+        this.container.addChild(this.pixelSprite);
+      }
+    }
 
     this.hpBar = new PIXI.Graphics();
     this.hpBar.y = -(kind === 'thug' ? 62 : 44);
@@ -734,6 +929,11 @@ class Enemy {
     this.stun = Math.max(0, this.stun - dt);
     this.attackCd = Math.max(0, this.attackCd - dt);
     const p = this.game.player;
+
+    if (this.pixelMode && this.pixelSprite && this.kind === 'crow') {
+      this.pixelSprite.rotation = 0;
+      this.pixelSprite.y = Math.round(-20 + Math.sin(t * 4 + this.phase) * 2);
+    }
 
     if (this.kind === 'crow') {
       if (this.state === 'perch') {

@@ -157,7 +157,8 @@ class UI {
         bg.drawRoundedRect(-w / 2 + 1, -h / 2 + 1, w - 2, h - 2, 6);
       }
       c.alpha = 0.88 + hover * 0.12;
-      c.scale.set(1 + hover * 0.02);
+      // В пиксельном режиме не масштабируем UI дробно: текст и рамки должны остаться резкими.
+      c.scale.set(GRAPHICS_MODE === 'pixel' ? 1 : 1 + hover * 0.02);
     };
     redraw();
     c.interactive = true;
@@ -201,11 +202,16 @@ class UI {
     this.ingredientCounts = {};
     const defs = [['hop', 44, 'хмель'], ['honey', 154, 'мёд'], ['water', 264, 'вода']];
     for (const [type, x, name] of defs) {
-      const icon = new PIXI.Graphics();
-      if (type === 'hop') drawHopIcon(icon, x + 10, 76, 0.82);
-      else if (type === 'honey') drawHoneyIcon(icon, x + 10, 76, 0.86);
-      else drawWaterIcon(icon, x + 10, 76, 0.9);
-      h.addChild(icon);
+      if (GRAPHICS_MODE === 'pixel') {
+        const icon = PixelArt.sprite(PixelArt.itemTex(type), x + 16, 76, 2.1, 0.5, 0.5);
+        h.addChild(icon);
+      } else {
+        const icon = new PIXI.Graphics();
+        if (type === 'hop') drawHopIcon(icon, x + 10, 76, 0.82);
+        else if (type === 'honey') drawHoneyIcon(icon, x + 10, 76, 0.86);
+        else drawWaterIcon(icon, x + 10, 76, 0.9);
+        h.addChild(icon);
+      }
 
       const count = makeText('0', {
         fontFamily: FONT_UI, fontSize: 21, fontWeight: '700', fill: 0xecdfc8,
@@ -222,17 +228,28 @@ class UI {
 
     // сердца
     this.hearts = [];
+    this.pixelHearts = GRAPHICS_MODE === 'pixel';
     for (let i = 0; i < 4; i++) {
-      const hg = new PIXI.Graphics();
-      hg.x = 44 + i * 22;
-      hg.y = 118;
-      h.addChild(hg);
-      this.hearts.push(hg);
+      if (this.pixelHearts) {
+        const hs = PixelArt.sprite(PixelArt.heartTex(false), 44 + i * 22, 118, 2, 0.5, 0.5);
+        h.addChild(hs);
+        this.hearts.push(hs);
+      } else {
+        const hg = new PIXI.Graphics();
+        hg.x = 44 + i * 22;
+        hg.y = 118;
+        h.addChild(hg);
+        this.hearts.push(hg);
+      }
     }
     // бутылки
-    const bottleIcon = new PIXI.Graphics();
-    drawWaterIcon(bottleIcon, 182, 126, 0.62);
-    h.addChild(bottleIcon);
+    if (GRAPHICS_MODE === 'pixel') {
+      h.addChild(PixelArt.sprite(PixelArt.itemTex('water'), 188, 126, 2, 0.5, 0.5));
+    } else {
+      const bottleIcon = new PIXI.Graphics();
+      drawWaterIcon(bottleIcon, 182, 126, 0.62);
+      h.addChild(bottleIcon);
+    }
     this.bottleText = makeText('0', {
       fontFamily: FONT_UI, fontSize: 14, fontWeight: '700', fill: 0xe7d6b4,
     });
@@ -258,48 +275,73 @@ class UI {
     h.addChild(this.objective);
 
     // карточка долга
+    const pixelUI = GRAPHICS_MODE === 'pixel';
     const debt = new PIXI.Container();
-    debt.x = 1004; debt.y = 18; debt.rotation = 0.028;
-    const shadow = new PIXI.Graphics();
-    shadow.beginFill(0x000000, 0.28);
-    shadow.drawRoundedRect(4, 7, 244, 107, 3);
-    shadow.endFill();
-    debt.addChild(shadow);
-    const paper = new PIXI.Sprite(buildTextures().paper);
-    paper.width = 242; paper.height = 104;
-    debt.addChild(paper);
-    const pin = new PIXI.Graphics();
-    circle(pin, 30, 4, 4, 0x7a2e24, 0.8);
-    circle(pin, 29, 2, 1.2, 0xd98570, 0.7);
-    debt.addChild(pin);
+    debt.x = 1004; debt.y = 18; debt.rotation = pixelUI ? 0 : 0.028;
+    if (pixelUI) {
+      const shadow = new PIXI.Graphics();
+      shadow.beginFill(0x000000, 0.28);
+      shadow.drawRect(4, 7, 244, 107);
+      shadow.endFill();
+      debt.addChild(shadow);
+      debt.addChild(PixelArt.sprite(PixelArt.paperTex(), 0, 0, 4, 0, 0));
+      const pin = new PIXI.Graphics();
+      pin.beginFill(0x7a2e24, 0.85); pin.drawRect(26, 0, 4, 4); pin.endFill();
+      pin.beginFill(0xd98570, 0.7); pin.drawRect(26, 2, 2, 2); pin.endFill();
+      debt.addChild(pin);
+    } else {
+      const shadow = new PIXI.Graphics();
+      shadow.beginFill(0x000000, 0.28);
+      shadow.drawRoundedRect(4, 7, 244, 107, 3);
+      shadow.endFill();
+      debt.addChild(shadow);
+      const paper = new PIXI.Sprite(buildTextures().paper);
+      paper.width = 242; paper.height = 104;
+      debt.addChild(paper);
+      const pin = new PIXI.Graphics();
+      circle(pin, 30, 4, 4, 0x7a2e24, 0.8);
+      circle(pin, 29, 2, 1.2, 0xd98570, 0.7);
+      debt.addChild(pin);
+    }
     const dl = makeText('ДОЛГ', {
-      fontFamily: FONT_UI, fontSize: 10, fontWeight: '700', fill: 0x6b4c31, letterSpacing: 3,
+      fontFamily: FONT_UI, fontSize: pixelUI ? 9 : 10, fontWeight: '700', fill: 0x6b4c31, letterSpacing: pixelUI ? 2 : 3,
     });
     dl.x = 20; dl.y = 18; debt.addChild(dl);
     this.debtAmount = makeText('47 000 ₽', {
-      fontFamily: FONT_DISPLAY, fontSize: 29, fontWeight: '600', fill: 0x332318,
+      fontFamily: FONT_DISPLAY, fontSize: pixelUI ? 26 : 29, fontWeight: '600', fill: 0x332318,
     });
-    this.debtAmount.x = 18; this.debtAmount.y = 31; debt.addChild(this.debtAmount);
+    this.debtAmount.x = 18; this.debtAmount.y = pixelUI ? 32 : 31; debt.addChild(this.debtAmount);
     this.moneyText = makeText('в кармане: 0 ₽', {
-      fontFamily: FONT_UI, fontSize: 11.5, fontWeight: '500', fill: 0x6c5138, letterSpacing: 0.5,
+      fontFamily: FONT_UI, fontSize: pixelUI ? 9.5 : 11.5, fontWeight: '500', fill: 0x6c5138, letterSpacing: pixelUI ? 0 : 0.5,
     });
-    this.moneyText.x = 21; this.moneyText.y = 70; debt.addChild(this.moneyText);
+    this.moneyText.x = 21; this.moneyText.y = pixelUI ? 64 : 70; debt.addChild(this.moneyText);
     this.dayText = makeText('день 1 · срок 3 дня', {
-      fontFamily: FONT_UI, fontSize: 10, fontWeight: '500', fill: 0x82684b, letterSpacing: 0.5,
+      fontFamily: FONT_UI, fontSize: pixelUI ? 8 : 10, fontWeight: '500', fill: 0x82684b, letterSpacing: pixelUI ? 0 : 0.5,
     });
-    this.dayText.x = 21; this.dayText.y = 86; debt.addChild(this.dayText);
-    const stamp = new PIXI.Graphics();
-    stamp.lineStyle(1.6, 0x9c3d2f, 0.6);
-    stamp.drawCircle(0, 0, 30);
-    stamp.drawCircle(0, 0, 26);
-    stamp.rotation = -0.17;
-    stamp.x = 198; stamp.y = 48;
-    debt.addChild(stamp);
-    const st = makeText('СРОК', {
-      fontFamily: FONT_UI, fontSize: 12, fontWeight: '700', fill: 0x9c3d2f, letterSpacing: 1.5,
-    }, 0.5);
-    st.rotation = -0.17; st.x = 198; st.y = 48;
-    debt.addChild(st);
+    this.dayText.x = 21; this.dayText.y = pixelUI ? 74 : 86; debt.addChild(this.dayText);
+    if (pixelUI) {
+      const stamp = PixelArt.sprite(PixelArt.stampTex(), 198, 48, 4, 0.5, 0.5);
+      stamp.alpha = 0.86;
+      debt.addChild(stamp);
+      const st = makeText('СРОК', {
+        fontFamily: FONT_UI, fontSize: 9, fontWeight: '700', fill: 0x9c3d2f, letterSpacing: 0,
+      }, 0.5);
+      st.x = 196; st.y = 48;
+      debt.addChild(st);
+    } else {
+      const stamp = new PIXI.Graphics();
+      stamp.lineStyle(1.6, 0x9c3d2f, 0.6);
+      stamp.drawCircle(0, 0, 30);
+      stamp.drawCircle(0, 0, 26);
+      stamp.rotation = -0.17;
+      stamp.x = 198; stamp.y = 48;
+      debt.addChild(stamp);
+      const st = makeText('СРОК', {
+        fontFamily: FONT_UI, fontSize: 12, fontWeight: '700', fill: 0x9c3d2f, letterSpacing: 1.5,
+      }, 0.5);
+      st.rotation = -0.17; st.x = 198; st.y = 48;
+      debt.addChild(st);
+    }
     h.addChild(debt);
 
     // подсказка управления
@@ -309,7 +351,7 @@ class UI {
     hb.drawRoundedRect(28, 682, 790, 24, 5);
     hb.endFill();
     this.hint.addChild(hb);
-    this.hintText = makeText('A / D — идти   ПРОБЕЛ — прыжок   E — действие   F — метла   TAB — журнал   T — дороги   M — звук', {
+    this.hintText = makeText('A / D — идти   ПРОБЕЛ — прыжок   E — действие   F — метла   TAB — журнал   T — дороги   G — вид   M — звук', {
       fontFamily: FONT_UI, fontSize: 10.5, fontWeight: '500', fill: 0x9faeac, letterSpacing: 0.4,
     });
     this.hintText.x = 40; this.hintText.y = 686;
@@ -337,8 +379,13 @@ class UI {
     for (let i = 0; i < 4; i++) {
       const hg = this.hearts[i];
       if (!hg) continue;
-      hg.clear();
-      if (i < maxHp) drawHeart(hg, 0, 0, 15, i < hp, i < hp ? 0xc85b4f : 0x2a303a);
+      if (this.pixelHearts) {
+        hg.visible = i < maxHp;
+        hg.texture = PixelArt.heartTex(i < hp);
+      } else {
+        hg.clear();
+        if (i < maxHp) drawHeart(hg, 0, 0, 15, i < hp, i < hp ? 0xc85b4f : 0x2a303a);
+      }
     }
     const bottles = this.game.countBottles ? this.game.countBottles() : 0;
     this.bottleText.text = String(bottles);
@@ -352,8 +399,8 @@ class UI {
       : `день ${p.day || 1} / 3 · до срока ${daysLeft} дн.`;
     const muted = this.game.audio.muted;
     this.hintText.text = muted
-      ? 'A / D — идти   ПРОБЕЛ — прыжок   E — действие   F — метла   TAB — журнал   T — дороги   M — звук выкл.'
-      : 'A / D — идти   ПРОБЕЛ — прыжок   E — действие   F — метла   TAB — журнал   T — дороги   M — звук';
+      ? 'A / D — идти   ПРОБЕЛ — прыжок   E — действие   F — метла   TAB — журнал   T — дороги   G — вид   M — звук выкл.'
+      : 'A / D — идти   ПРОБЕЛ — прыжок   E — действие   F — метла   TAB — журнал   T — дороги   G — вид   M — звук';
   }
 
   showHUD(v) { this.hud.visible = !!v; if (v && this.hint) this.hint.visible = true; }
@@ -599,8 +646,13 @@ class UI {
     state.shown = -1;
     state.speaker = line.speaker || '';
     const pk = line.portrait || this.portraitFor(line.speaker);
-    const tex = portraitTexture(pk);
-    this.portrait.texture = tex;
+    if (GRAPHICS_MODE === 'pixel' && pk !== 'none' && pk !== 'narrator') {
+      this.portrait.texture = PixelArt.portrait(pk);
+      this.portrait.width = this.portrait.height = 140;
+    } else {
+      const tex = portraitTexture(pk);
+      this.portrait.texture = tex;
+    }
     this.portrait.visible = pk !== 'none';
     this.dialogName.text = line.speaker || '';
     this.dialogName.visible = !!line.speaker;
@@ -744,6 +796,7 @@ class UI {
     this.narrationActive = true;
     this.narration.visible = true;
     this.narration.alpha = 1;
+    if (GRAPHICS_MODE === 'pixel' && PixelArt.labelLayer) PixelArt.labelLayer.visible = true;
     this.narrationLabel.text = this.narrationState.label;
     this.narrationText.style.fill = options.warm ? 0xf3ddba : 0xeee2ca;
     this.narrationWarm.alpha = options.warm ? 0.28 : 0.12;
@@ -834,7 +887,7 @@ class UI {
     t.addChild(glow);
     this.titleGlow = glow;
 
-    const eyebrow = makeText('ИСТОРИЯ В ТРЁХ ДЕЙСТВИЯХ', {
+    const eyebrow = makeText('ИСТОРИЯ В ПЯТИ ГЛАВАХ', {
       fontFamily: FONT_UI, fontSize: 11, fontWeight: '700', fill: 0xc6a674, letterSpacing: 5,
     }, 0.5);
     eyebrow.x = 640; eyebrow.y = 122;
@@ -898,6 +951,20 @@ class UI {
     t.addChild(helpBtn);
     this.helpBtn = helpBtn;
 
+    this.graphicsBtn = this.makeButton('ПИКСЕЛЬ (НЕ РЕКОМЕНДУЕТСЯ)', 300, 44, false, () => {
+      this.game.toggleGraphicsMode();
+    });
+    this.graphicsBtn.label.style.fontSize = 13;
+    this.graphicsBtn.x = 980; this.graphicsBtn.y = 530;
+    t.addChild(this.graphicsBtn);
+
+    const gHint = makeText('G — пиксельный режим (не рекомендуется)', {
+      fontFamily: FONT_UI, fontSize: 10, fontWeight: '500', fill: 0x7d8b98, letterSpacing: 0.8,
+    }, 0.5);
+    gHint.x = 980; gHint.y = 566;
+    t.addChild(gHint);
+    this.graphicsHint = gHint;
+
     const note = makeText('Наденьте наушники. Здесь важна тишина.', {
       fontFamily: FONT_DISPLAY, fontStyle: 'italic', fontSize: 16, fill: 0x8e9aa4,
     }, 0.5);
@@ -928,6 +995,7 @@ class UI {
   showTitle() {
     this.titleOverlay.visible = true;
     this.titleOverlay.alpha = 1;
+    if (GRAPHICS_MODE === 'pixel' && PixelArt.labelLayer) PixelArt.labelLayer.visible = false;
     this.hud.visible = false;
     this.prompt.visible = false;
     this.dialog.visible = false;
@@ -937,6 +1005,12 @@ class UI {
 
     const info = this.game.getSaveInfo ? this.game.getSaveInfo() : null;
     const hasSave = !!info;
+    const isPixel = GRAPHICS_MODE === 'pixel';
+    this.graphicsBtn.label.text = isPixel ? 'ОРИГИНАЛЬНАЯ ГРАФИКА' : 'ПИКСЕЛЬ (НЕ РЕКОМЕНДУЕТСЯ)';
+    this.graphicsBtn.label.style.fontSize = isPixel ? 14 : 13;
+    this.graphicsHint.text = isPixel
+      ? 'G — вернуться к оригинальной графике'
+      : 'G — пиксельный режим (не рекомендуется)';
     this.continueBtn.visible = hasSave;
     if (hasSave) {
       this.continueBtn.label.text = `ПРОДОЛЖИТЬ · ДЕНЬ ${info.day || 1}`;
@@ -944,16 +1018,23 @@ class UI {
       this.startBtn.label.text = 'НОВАЯ ИСТОРИЯ';
       this.startBtn.y = 508;
       this.helpBtn.y = 568;
-      this.titleNote.y = 616;
+      this.graphicsBtn.y = 568;
+      this.graphicsHint.y = 605;
+      this.titleNote.y = 642;
     } else {
       this.startBtn.label.text = 'НАЧАТЬ ИСТОРИЮ';
       this.startBtn.y = 460;
       this.helpBtn.y = 530;
+      this.graphicsBtn.y = 530;
+      this.graphicsHint.y = 566;
       this.titleNote.y = 610;
     }
   }
 
-  hideTitle() { this.titleOverlay.visible = false; }
+  hideTitle() {
+    this.titleOverlay.visible = false;
+    if (GRAPHICS_MODE === 'pixel' && PixelArt.labelLayer) PixelArt.labelLayer.visible = true;
+  }
 
   openHelp() {
     this.helpOverlay.visible = true;
@@ -995,7 +1076,7 @@ class UI {
       ['TAB', 'журнал и рецепты'],
       ['T', 'быстрые переходы'],
       ['R', 'вернуться к последнему фонарю'],
-      ['ESC / M', 'пауза · звук'],
+      ['ESC / M / G', 'пауза · звук · графика'],
     ];
     let y = 216;
     for (const [key, text] of lines) {
@@ -1042,46 +1123,53 @@ class UI {
 
     const panel = new PIXI.Graphics();
     panel.beginFill(0x09111c, 0.97);
-    panel.drawRoundedRect(430, 190, 420, 330, 12);
+    panel.drawRoundedRect(430, 170, 420, 390, 12);
     panel.endFill();
     panel.lineStyle(1.2, 0xd8b06a, 0.42);
-    panel.drawRoundedRect(431, 191, 418, 328, 11);
+    panel.drawRoundedRect(431, 171, 418, 388, 11);
     p.addChild(panel);
 
     const title = makeText('ПАУЗА', {
       fontFamily: FONT_DISPLAY, fontSize: 38, fontWeight: '600', fill: 0xe3c48d, letterSpacing: 5,
     }, 0.5);
-    title.x = 640; title.y = 246;
+    title.x = 640; title.y = 226;
     p.addChild(title);
 
     const sub = makeText('Тихий берег никуда не денется.', {
       fontFamily: FONT_DISPLAY, fontStyle: 'italic', fontSize: 17, fill: 0x95a3af,
     }, 0.5);
-    sub.x = 640; sub.y = 288;
+    sub.x = 640; sub.y = 268;
     p.addChild(sub);
 
     const resume = this.makeButton('ПРОДОЛЖИТЬ', 230, 46, true, () => this.game.togglePause(false));
-    resume.x = 640; resume.y = 350;
+    resume.x = 640; resume.y = 330;
     p.addChild(resume);
 
     const restart = this.makeButton('НАЧАТЬ ЗАНОВО', 230, 42, false, () => {
       this.game.togglePause(false);
       this.game.restart();
     });
-    restart.x = 640; restart.y = 410;
+    restart.x = 640; restart.y = 390;
     p.addChild(restart);
 
     this.pauseMute = this.makeButton('ВЫКЛЮЧИТЬ ЗВУК', 230, 42, false, () => {
       this.game.toggleMute();
       this.pauseMute.label.text = this.game.audio.muted ? 'ВКЛЮЧИТЬ ЗВУК' : 'ВЫКЛЮЧИТЬ ЗВУК';
     });
-    this.pauseMute.x = 640; this.pauseMute.y = 466;
+    this.pauseMute.x = 640; this.pauseMute.y = 446;
     p.addChild(this.pauseMute);
 
-    const hint = makeText('ESC — вернуться', {
+    this.pauseGraphics = this.makeButton('ПИКСЕЛЬ (НЕ РЕКОМЕНДУЕТСЯ)', 300, 42, false, () => {
+      this.game.toggleGraphicsMode();
+    });
+    this.pauseGraphics.label.style.fontSize = 13;
+    this.pauseGraphics.x = 640; this.pauseGraphics.y = 502;
+    p.addChild(this.pauseGraphics);
+
+    const hint = makeText('ESC — вернуться   ·   G — графика', {
       fontFamily: FONT_UI, fontSize: 11, fill: 0x7d8b98, letterSpacing: 1.5,
     }, 0.5);
-    hint.x = 640; hint.y = 508;
+    hint.x = 640; hint.y = 548;
     p.addChild(hint);
 
     p.interactive = true;
@@ -1093,6 +1181,11 @@ class UI {
     this.paused = v;
     this.pauseOverlay.visible = v;
     this.pauseMute.label.text = this.game.audio.muted ? 'ВКЛЮЧИТЬ ЗВУК' : 'ВЫКЛЮЧИТЬ ЗВУК';
+    if (this.pauseGraphics) {
+      const isPixel = GRAPHICS_MODE === 'pixel';
+      this.pauseGraphics.label.text = isPixel ? 'ОРИГИНАЛЬНАЯ ГРАФИКА' : 'ПИКСЕЛЬ (НЕ РЕКОМЕНДУЕТСЯ)';
+      this.pauseGraphics.label.style.fontSize = isPixel ? 14 : 13;
+    }
   }
 
   /* ================= ЖУРНАЛ ================= */
@@ -1211,23 +1304,29 @@ class UI {
     });
 
     // средняя — рецепты и бутылки
+    const pixelUI = GRAPHICS_MODE === 'pixel';
     this.journalHeader('ВАРКА', 460, 178);
     let ry = 198;
+    const recipeStep = pixelUI ? 54 : 48;
     for (const key of ['mead', 'beer', 'festival', 'stout']) {
       const r = RECIPES[key];
       const unlocked = !!(p.recipes && p.recipes[key]);
       this.journalText(unlocked ? r.name : '??? — рецепт ещё не найден', 460, ry, {
-        fontSize: 14, fill: unlocked ? 0xe8d7b7 : 0x69737c, fontWeight: '500', wordWrapWidth: 320,
+        fontSize: pixelUI ? 13.5 : 14, fill: unlocked ? 0xe8d7b7 : 0x69737c, fontWeight: '500', wordWrapWidth: 320,
       });
-      const ing = Object.entries(r.ingredients).map(([k, v]) => `${ITEM_INFO[k].short} ×${v}`).join(' · ');
-      this.journalText(unlocked ? `${ing}  →  ${r.bottles} бут.` : 'Нужно найти человека, который помнит рецепт.', 460, ry + 22, {
-        fontSize: 11.5, fill: unlocked ? 0x9fb0a9 : 0x5f6971, wordWrapWidth: 330, lineHeight: 16,
+      const ing = Object.entries(r.ingredients).map(([k, v]) => `${ITEM_INFO[k].short} ×${v}`);
+      const ingText = pixelUI
+        ? (unlocked ? ing.slice(0, 3).join(' · ') + (ing.length > 3 ? ` · +${ing.length - 3}` : '') + `  →  ${r.bottles} бут.` : 'Нужно найти человека, который помнит рецепт.')
+        : (unlocked ? `${ing.join(' · ')}  →  ${r.bottles} бут.` : 'Нужно найти человека, который помнит рецепт.');
+      this.journalText(ingText, 460, ry + (pixelUI ? 19 : 22), {
+        fontSize: pixelUI ? 10 : 11.5, fill: unlocked ? 0x9fb0a9 : 0x5f6971,
+        wordWrapWidth: 330, lineHeight: pixelUI ? 13 : 16,
       });
-      ry += 48;
+      ry += recipeStep;
     }
 
-    this.journalHeader('БУТЫЛКИ', 460, 402);
-    let by = 422;
+    this.journalHeader('БУТЫЛКИ', 460, pixelUI ? 440 : 402);
+    let by = pixelUI ? 460 : 422;
     const batches = p.bottles || [];
     if (!batches.length) {
       this.journalText('Пусто. Пора варить.', 460, by, { fontSize: 12.5, fill: 0x8c9aa6 });
@@ -1389,6 +1488,28 @@ class UI {
     this.brewMissing.x = 590; this.brewMissing.y = 563;
     this.brewSelectGroup.addChild(this.brewMissing);
 
+    // в пиксельном режиме DotGothic шире — чуть уменьшаем набор
+    if (GRAPHICS_MODE === 'pixel') {
+      this.brewRecipeName.style.fontSize = 23;
+      this.brewRecipeName.style.lineHeight = 27;
+      this.brewRecipeIngredients.style.fontSize = 11.5;
+      this.brewRecipeIngredients.style.lineHeight = 17;
+      this.brewRecipeDesc.style.fontSize = 14;
+      this.brewRecipeDesc.style.lineHeight = 18;
+      this.brewRecipeProcess.style.fontSize = 9.5;
+      this.brewRecipeProcess.style.lineHeight = 13;
+      this.brewRecipeProcess.y = 338;
+      this.brewSelectHint.style.fontSize = 10;
+      this.brewMissing.style.fontSize = 11.5;
+      for (const key of Object.keys(this.brewRows)) {
+        const row = this.brewRows[key];
+        row.name.style.fontSize = 14;
+        row.ing.style.fontSize = 10.5;
+        row.ing.style.lineHeight = 14;
+        row.count.style.fontSize = 9.5;
+      }
+    }
+
     // процесс
     this.brewStepNum = makeText('', {
       fontFamily: FONT_UI, fontSize: 10.5, fontWeight: '700', fill: 0xb99a67, letterSpacing: 2.8,
@@ -1523,8 +1644,12 @@ class UI {
       ui.rowBg.drawRoundedRect(1, 1, 358, 80, 7);
       ui.row.alpha = unlocked ? 1 : 0.48;
       ui.name.text = unlocked ? r.short : '??? — рецепт не найден';
-      const ing = Object.entries(r.ingredients).map(([k, v]) => `${ITEM_INFO[k].short} ×${v}`).join(' · ');
-      ui.ing.text = unlocked ? ing : 'Расспроси людей. Кто-то помнит, как варил твой отец.';
+      const ing = Object.entries(r.ingredients).map(([k, v]) => `${ITEM_INFO[k].short} ×${v}`);
+      ui.ing.text = unlocked
+        ? (GRAPHICS_MODE === 'pixel'
+          ? ing.slice(0, 3).join(' · ') + (ing.length > 3 ? ` · +${ing.length - 3}` : '')
+          : ing.join(' · '))
+        : 'Расспроси людей. Кто-то помнит, как варил твой отец.';
       ui.count.text = unlocked ? `${r.bottles} бут.  ·  ${r.steps.length} этапа  ·  ${can ? 'можно варить' : 'не хватает припасов'}` : 'закрыто';
       ui.count.style.fill = can ? 0x9fc0a1 : 0x8f7c70;
     }

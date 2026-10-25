@@ -55,11 +55,14 @@ class Game {
     this._lastMuteToast = 0;
     this.frozen = false;
     this.starting = false;
+    this.pixelMode = GRAPHICS_MODE === 'pixel';
+    this.pixelFilter = null;
 
     this.worldHolder = new PIXI.Container();
     this.root.addChild(this.worldHolder);
 
     this.newWorld();
+    this.applyGraphicsMode();
 
     this.ui = new UI(this);
     this.root.addChild(this.ui.root);
@@ -187,6 +190,31 @@ class Game {
     this.root.scale.set(scale);
     this.root.x = (w - GAME_W * scale) / 2;
     this.root.y = (h - GAME_H * scale) / 2;
+    if (this.pixelFilter) this.pixelFilter.setScreenSize(w, h, scale);
+  }
+
+  applyGraphicsMode() {
+    this.pixelMode = GRAPHICS_MODE === 'pixel';
+    // Пиксельный режим теперь рисуется отдельными спрайтами.
+    // Глобальный фильтр не используем: он делает картинку грязной.
+    this.pixelFilter = null;
+    this.worldHolder.filters = null;
+    this.worldHolder.filterArea = null;
+  }
+
+  toggleGraphicsMode() {
+    // Пиксель — демо-режим. В адресе он живёт только пока пользователь
+    // явно его выбрал; обычное открытие игры всегда даёт оригинал.
+    const next = this.pixelMode ? 'classic' : 'pixel';
+    this.saveGame();
+    try {
+      const url = new URL(location.href);
+      if (next === 'pixel') url.searchParams.set('graphics', 'pixel');
+      else url.searchParams.delete('graphics');
+      location.href = url.toString();
+    } catch (e) {
+      location.reload();
+    }
   }
 
   startLoop() {
@@ -1190,6 +1218,10 @@ class Game {
 
     if (input.wasPressed('KeyV')) this.toggleFullscreen();
     if (input.wasPressed('KeyM')) this.toggleMute();
+    if (input.wasPressed('KeyG') && (this.state === 'title' || this.state === 'paused')) {
+      this.toggleGraphicsMode();
+      return;
+    }
 
     // верхние окна
     if (this.ui.brewingActive) {
@@ -2009,6 +2041,7 @@ async function waitForFonts() {
     ["700 20px 'Alegreya Sans'", 'хмель мёд вода долг'],
     ["400 20px 'Alegreya Sans'", 'Борисыч Витя'],
     ["500 20px 'Alegreya Sans'", 'записка три дня'],
+    ["400 20px 'DotGothic16'", 'Дядя Витя хмель мёд вода'],
   ];
   try {
     await Promise.all(samples.map(([font, text]) => document.fonts.load(font, text)));
@@ -2017,12 +2050,25 @@ async function waitForFonts() {
 }
 
 (async function boot() {
+  if (GRAPHICS_MODE === 'pixel') document.documentElement.classList.add('pixel-mode');
   const bootEl = document.getElementById('boot');
   const statusEl = document.getElementById('bootStatus');
   try {
     if (statusEl) statusEl.textContent = 'зажигаем фонари…';
     await waitForFonts();
     buildTextures();
+    if (GRAPHICS_MODE === 'pixel' && typeof PixelArt !== 'undefined' && PixelArt.load) {
+      await PixelArt.load();
+    }
+
+    if (GRAPHICS_MODE === 'pixel' && !PIXI.__pixelRoundedPatched) {
+      const origRounded = PIXI.Graphics.prototype.drawRoundedRect;
+      PIXI.Graphics.prototype.drawRoundedRect = function (x, y, w, h, r) {
+        return this.drawRect(x, y, w, h);
+      };
+      PIXI.__pixelRoundedPatched = true;
+      PIXI.__origRoundedRect = origRounded;
+    }
 
     const app = new PIXI.Application({
       width: window.innerWidth,
@@ -2037,6 +2083,7 @@ async function waitForFonts() {
 
     const game = new Game(app);
     window.__vitya = game;
+    document.documentElement.classList.toggle('pixel-mode', GRAPHICS_MODE === 'pixel');
     game.layout();
     window.addEventListener('resize', () => game.layout());
     document.addEventListener('fullscreenchange', () => setTimeout(() => game.layout(), 80));

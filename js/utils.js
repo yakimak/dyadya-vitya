@@ -9,8 +9,19 @@ const GAME_W = 1280;
 const GAME_H = 720;
 const TAU = Math.PI * 2;
 
-const FONT_DISPLAY = 'Cormorant Garamond';
-const FONT_UI = 'Alegreya Sans';
+/* Режим графики: classic — текущая живописная, pixel — пиксельный 16-битный вид. */
+const GRAPHICS_KEY = 'vitya_graphics_mode';
+let GRAPHICS_MODE = 'classic';
+try {
+  // По умолчанию всегда открываем оригинальную живопись.
+  // Пиксель — демо-режим и включается только кнопкой (URL ?graphics=pixel).
+  const q = new URLSearchParams(location.search).get('graphics');
+  if (q === 'pixel' || q === 'classic') GRAPHICS_MODE = q;
+  localStorage.removeItem(GRAPHICS_KEY);
+} catch (e) { /* localStorage может быть недоступен */ }
+
+let FONT_DISPLAY = GRAPHICS_MODE === 'pixel' ? 'DotGothic16' : 'Cormorant Garamond';
+let FONT_UI = GRAPHICS_MODE === 'pixel' ? 'DotGothic16' : 'Alegreya Sans';
 
 const PAL = {
   ink: 0x090d16,
@@ -311,6 +322,7 @@ function ellipse(g, x, y, w, h, color, alpha) {
 }
 
 /* ---------- ввод ---------- */
+
 class Input {
   constructor() {
     this.keys = Object.create(null);

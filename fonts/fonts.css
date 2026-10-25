@@ -1,4 +1,12 @@
 ﻿@font-face {
+  font-family: 'DotGothic16';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('pixel/DotGothic16-400.ttf') format('truetype');
+}
+
+@font-face {
   font-family: 'Alegreya Sans';
   font-style: normal;
   font-weight: 400;

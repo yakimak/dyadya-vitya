@@ -16,6 +16,25 @@ body {
 #game { position: fixed; inset: 0; }
 #game canvas { display: block; }
 
+html.pixel-mode #game canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+html.pixel-mode .boot-title,
+html.pixel-mode .boot-sub,
+html.pixel-mode .boot-status {
+  font-family: 'DotGothic16', monospace;
+  letter-spacing: 2px;
+}
+html.pixel-mode .boot-title {
+  font-size: 74px;
+  font-weight: 700;
+}
+html.pixel-mode .boot-sub {
+  font-style: normal;
+  font-size: 34px;
+}
+
 #boot {
   position: fixed;
   inset: 0;

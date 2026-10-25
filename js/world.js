@@ -9,6 +9,7 @@ class World {
     this.game = game;
     this.width = 10700;
     this.day = 1;
+    this.pixelMode = GRAPHICS_MODE === 'pixel';
     this.camera = { x: 0, y: 0, shakeX: 0, shakeY: 0 };
     this.time = 0;
     this.brewIntensity = 0;
@@ -99,6 +100,8 @@ class World {
     this.buildAmbience();
 
     this.activeSolids = this.staticSolids.concat(this.movingPlatforms);
+
+    if (GRAPHICS_MODE === 'pixel') PixelArt.attach(this);
   }
 
   /* ================= НЕБО ================= */
@@ -1050,6 +1053,10 @@ class World {
 
   updateGarden(progressGarden) {
     if (!this.gardenBeds.length) return;
+    if (this.pixelMode && this.pixelArt) {
+      this.pixelArt.updateGarden(progressGarden || (this.game.progress && this.game.progress.garden));
+      return;
+    }
     const beds = progressGarden || (this.game.progress && this.game.progress.garden) || [];
     for (const bed of this.gardenBeds) {
       const state = beds[bed.index] || { stage: 0, watered: false };
@@ -1106,6 +1113,10 @@ class World {
       this.borisFinal.container.x = bx;
     }
     this.setFestivalLanterns(this.game && this.game.progress ? this.game.progress.festivalLanterns : []);
+    if (this.pixelArt) {
+      this.pixelArt.updateVisibility(this);
+      this.pixelArt.syncAllLanterns();
+    }
     if (this.game && this.game.ui && this.game.ui.hud) this.game.ui.updateHUD();
     if (this.game && this.game.world) this.updateGarden(this.game.progress.garden);
   }
@@ -2005,6 +2016,7 @@ class World {
       this.spawnBurst(l.x, l.y, 0xffd38a, 18);
       this.game.audio.sfx('checkpoint');
     }
+    if (this.pixelArt) this.pixelArt.syncLantern(l);
     return true;
   }
 
@@ -2019,11 +2031,16 @@ class World {
         l.g.clear();
         drawLanternPost(l.g, 0, 0, false);
         l.glow.alpha = 0.13;
+        if (this.pixelArt) this.pixelArt.syncLantern(l);
       }
     }
   }
 
   launchFirework() {
+    if (this.pixelMode && this.pixelArt) {
+      this.pixelArt.firework();
+      return;
+    }
     const colors = [0xffb45e, 0xf1d296, 0xd47b73, 0x9cdcea, 0xa7c98d];
     const x = 7600 + Math.random() * 1350;
     const y = 150 + Math.random() * 120;
@@ -2201,13 +2218,17 @@ class World {
     this.camera = camera;
 
     // параллакс
-    this.worldRoot.x = -camera.x + camera.shakeX;
-    this.worldRoot.y = -camera.y + camera.shakeY;
+    const camX = this.pixelMode ? Math.round(camera.x) : camera.x;
+    const camY = this.pixelMode ? Math.round(camera.y) : camera.y;
+    const shX = this.pixelMode ? Math.round(camera.shakeX) : camera.shakeX;
+    const shY = this.pixelMode ? Math.round(camera.shakeY) : camera.shakeY;
+    this.worldRoot.x = -camX + shX;
+    this.worldRoot.y = -camY + shY;
     this.skyRoot.x = camera.shakeX * 0.35;
     this.skyRoot.y = camera.shakeY * 0.35;
     for (const layer of this.parallaxLayers) {
-      layer.c.x = -camera.x * layer.factor + camera.shakeX * layer.factor;
-      layer.c.y = -camera.y * layer.factor * 0.18;
+      layer.c.x = -camX * layer.factor + shX * layer.factor;
+      layer.c.y = -camY * layer.factor * 0.18;
     }
     this.weatherRoot.x = camera.shakeX * 0.5;
     this.weatherRoot.y = camera.shakeY * 0.5;
@@ -2316,6 +2337,8 @@ class World {
     for (const blade of this.foregroundBlades) {
       blade.g.rotation = Math.sin(t * 0.8 + blade.phase) * blade.amp;
     }
+
+    if (this.pixelMode && this.pixelArt) this.pixelArt.update(this, dt, t, camera);
 
     // листья
     for (const l of this.leaves) {
@@ -2472,6 +2495,10 @@ class World {
   }
 
   spawnBurst(x, y, color, count) {
+    if (this.pixelMode && this.pixelArt) {
+      this.pixelArt.burst(x, y, color, count);
+      return;
+    }
     for (let i = 0; i < (count || 16); i++) {
       const ang = Math.random() * TAU;
       const sp = 30 + Math.random() * 110;
