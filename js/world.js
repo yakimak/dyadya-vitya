@@ -7,10 +7,15 @@
 class World {
   constructor(game) {
     this.game = game;
-    this.width = 5850;
+    this.width = 9200;
+    this.day = 1;
     this.camera = { x: 0, y: 0, shakeX: 0, shakeY: 0 };
     this.time = 0;
     this.brewIntensity = 0;
+    this.gates = [];
+    this.stations = [];
+    this.gardenBeds = [];
+    this.festivalLights = [];
 
     this.root = new PIXI.Container();
 
@@ -60,6 +65,13 @@ class World {
     this.root.addChild(this.weatherRoot);
     this.frameRoot = new PIXI.Container();
     this.root.addChild(this.frameRoot);
+    this.dayTint = new PIXI.Sprite(PIXI.Texture.WHITE);
+    this.dayTint.width = GAME_W;
+    this.dayTint.height = GAME_H;
+    this.dayTint.tint = 0xffa05e;
+    this.dayTint.alpha = 0;
+    this.dayTint.blendMode = PIXI.BLEND_MODES.ADD;
+    this.root.addChild(this.dayTint);
 
     this.grounds = [];
     this.staticSolids = [];
@@ -93,7 +105,30 @@ class World {
       [1, '#5b4a4e'],
     ], true));
     sky.y = -40;
+    this.skySprite = sky;
+    this.skyVariants = [
+      sky.texture,
+      linearGradientTexture(1280, 800, [
+        [0, '#0b1628'],
+        [0.28, '#1b2a44'],
+        [0.5, '#34455f'],
+        [0.68, '#6e5b62'],
+        [0.82, '#b47862'],
+        [0.93, '#d99a6e'],
+        [1, '#7a5750'],
+      ], true),
+      linearGradientTexture(1280, 800, [
+        [0, '#090b1a'],
+        [0.3, '#201a35'],
+        [0.55, '#3b2a46'],
+        [0.7, '#6b3f4d'],
+        [0.84, '#a85c55'],
+        [0.94, '#d98c61'],
+        [1, '#654141'],
+      ], true),
+    ];
     this.skyRoot.addChild(sky);
+    this.starFactor = 1;
 
     // далёкое тёплое зарево деревни
     const warm = fogSprite(900, 400, 0.22);
@@ -186,7 +221,7 @@ class World {
   addLayer(factor, draw) {
     const c = new PIXI.Container();
     const g = new PIXI.Graphics();
-    draw(g, 1280 + factor * 4570 + 240);
+    draw(g, 1280 + factor * (this.width - 1280) + 300);
     c.addChild(g);
     this.parallaxRoot.addChild(c);
     this.parallaxLayers.push({ c, factor });
@@ -341,6 +376,8 @@ class World {
       { x: 980, w: 920, top: 600, seed: 45 },
       { x: 2850, w: 1350, top: 600, seed: 78 },
       { x: 4200, w: 1650, top: 600, seed: 99 },
+      { x: 5850, w: 1550, top: 600, seed: 121 },
+      { x: 7400, w: 1820, top: 600, seed: 154 },
     ];
     const rng = mulberry32(31337);
 
@@ -357,6 +394,8 @@ class World {
     this.drawRiver();
     this.buildPlatforms();
     this.buildScenery();
+    this.buildGates();
+    this.buildStations();
     this.buildLights();
     this.buildForeground();
   }
@@ -509,6 +548,18 @@ class World {
       { x: 3650, y: 330, w: 150, h: 22, kind: 'wood' },
       { x: 3890, y: 420, w: 150, h: 22, kind: 'wood' },
       { x: 4070, y: 500, w: 132, h: 22, kind: 'wood' },
+      // лес и мельница
+      { x: 5920, y: 520, w: 140, h: 22, kind: 'wood' },
+      { x: 6140, y: 452, w: 132, h: 22, kind: 'wood' },
+      { x: 6330, y: 530, w: 120, h: 22, kind: 'wood' },
+      { x: 6520, y: 438, w: 144, h: 22, kind: 'wood' },
+      { x: 6740, y: 512, w: 150, h: 22, kind: 'wood' },
+      { x: 7010, y: 430, w: 145, h: 22, kind: 'wood' },
+      { x: 7200, y: 520, w: 135, h: 22, kind: 'wood' },
+      // площадь
+      { x: 7560, y: 522, w: 150, h: 22, kind: 'wood' },
+      { x: 7830, y: 462, w: 150, h: 22, kind: 'wood' },
+      { x: 8100, y: 525, w: 140, h: 22, kind: 'wood' },
     ];
 
     this.platforms = [];
@@ -678,9 +729,11 @@ class World {
     drawWell(g, 450, 600);
     drawWoodpile(g, 380, 600);
     drawFence(g, 500, 640, 600);
-    drawFence(g, 790, 975, 600);
     drawSign(g, 560, 600, 150, 42);
     drawCrates(g, 637, 600, 1, 62);
+    // огород
+    drawFence(g, 780, 802, 600);
+    drawFence(g, 938, 975, 600);
 
     // кот у колодца
     this.buildCat(520, 600);
@@ -758,6 +811,42 @@ class World {
     // провода с фонариками
     this.drawStringLights(g);
 
+    // ---------- лесная дорога и мельница ----------
+    for (let i = 0; i < 9; i++) {
+      const x = 5880 + i * 165;
+      if (x > 7350) break;
+      if (i % 3 === 0) drawPine(g, x, 600, 190 + (i % 4) * 28, 300 + i, true);
+      else drawBirch(g, x, 600, 240 + (i % 3) * 45, 300 + i);
+    }
+    drawBush(g, 6010, 600, 1.0, 301);
+    drawBush(g, 6430, 600, 0.9, 303);
+    drawBush(g, 7280, 600, 1.2, 305);
+    drawMushrooms(g, 6080, 600, 307);
+    drawMushrooms(g, 6610, 600, 309);
+    drawStones(g, 6220, 600, 311, 3);
+    drawStones(g, 7140, 600, 313, 4);
+    drawSign(g, 5940, 600, 160, 42);
+    drawMill(g, 7000, 600);
+    drawFence(g, 7200, 7290, 600);
+    drawCrates(g, 7240, 600, 1, 42);
+    this.addWorldText('СТАРАЯ МЕЛЬНИЦА', 7000, 326, 15, 0xc9b68f, FONT_UI, '600', 2);
+
+    // ---------- площадь ----------
+    drawVillageHouse(g, 7480, 600, 170, 170, 0x4a3a2b, 0x2e3435, 401);
+    drawVillageHouse(g, 8860, 600, 220, 190, 0x4d3a2b, 0x34312f, 402);
+    drawVillageHouse(g, 9120, 600, 130, 150, 0x40342a, 0x2a3032, 403);
+    drawStall(g, 7660, 600, 130, 0x7d3e38);
+    drawStall(g, 8980, 600, 120, 0x4d5f6f);
+    drawFestivalStage(g, 8260, 600, 520);
+    drawBirch(g, 9060, 600, 300, 411);
+    drawPine(g, 7500, 600, 200, 413, true);
+    drawBush(g, 8080, 600, 0.9, 415);
+    drawBush(g, 9210, 600, 1.0, 417);
+    drawStones(g, 8150, 600, 419, 4);
+    drawSign(g, 7410, 600, 190, 45);
+    this.addWorldText('ТИХИЙ БЕРЕГ', 7505, 533, 14, 0xe7c98f, FONT_DISPLAY, '600', 1.2);
+    this.addWorldText('ФЕСТИВАЛЬ', 8520, 380, 18, 0xf1d296, FONT_DISPLAY, '600', 3);
+
     // текст на вывесках
     this.addWorldText('МЕДВЕДЕВО', 635, 538, 19, 0xe7c98f, FONT_DISPLAY, '600', 2);
     this.addWorldText('три дня до срока', 635, 555, 10, 0xc7ad82, FONT_UI, '400', 1);
@@ -781,6 +870,151 @@ class World {
     t.x = x; t.y = y;
     this.scenery.addChild(t);
     return t;
+  }
+
+  /* ================= ВОРОТА, СТАНЦИИ, ОГОРОД ================= */
+
+  buildGates() {
+    const defs = [
+      { x: 5790, day: 2, title: 'mill' },
+      { x: 7310, day: 3, title: 'village' },
+    ];
+    for (const def of defs) {
+      const closed = new PIXI.Graphics();
+      drawGate(closed, def.x, 600, false);
+      const open = new PIXI.Graphics();
+      drawGate(open, def.x, 600, true);
+      this.scenery.addChild(closed, open);
+      const solid = { x: def.x - 70, y: 430, w: 140, h: 170, disabled: false, gate: true };
+      this.staticSolids.push(solid);
+      this.gates.push({ def, closed, open, solid });
+    }
+    this.updateGates();
+  }
+
+  updateGates() {
+    for (const gate of this.gates) {
+      const closed = this.day < gate.def.day;
+      gate.solid.disabled = !closed;
+      gate.closed.visible = closed;
+      gate.open.visible = !closed;
+    }
+  }
+
+  buildStations() {
+    // кровать / дом
+    const bedG = new PIXI.Graphics();
+    rect(bedG, -22, -3, 44, 3, 0x4a3625);
+    line(bedG, -22, -3, 22, -3, 1, 0x7a5a38, 0.5);
+    line(bedG, -18, -3, -18, 0, 1.5, 0x2a1d13);
+    line(bedG, 18, -3, 18, 0, 1.5, 0x2a1d13);
+    circle(bedG, 30, -28, 4, 0xffc46e, 0.8);
+    line(bedG, 30, -24, 30, -16, 1.2, 0x3c2b1e);
+    this.scenery.addChild(bedG);
+    bedG.x = 141; bedG.y = 600;
+    this.stations.push({ type: 'bed', x: 141, y: 600, range: 78 });
+
+    // прилавок у пивоварни
+    const tradeG = new PIXI.Graphics();
+    rect(tradeG, -46, -36, 92, 8, 0x4a3322);
+    rect(tradeG, -40, -28, 8, 28, 0x352518);
+    rect(tradeG, 32, -28, 8, 28, 0x352518);
+    rect(tradeG, -42, -56, 84, 20, 0x3a2a1b);
+    rect(tradeG, -40, -54, 80, 16, 0x5b4028);
+    for (let i = 0; i < 4; i++) {
+      const bx = -28 + i * 18;
+      rect(tradeG, bx - 3, -52, 6, 16, 0x2f3c34);
+      rect(tradeG, bx - 2, -48, 4, 10, i % 2 ? 0xb9853f : 0x7d9a55, 0.9);
+      rect(tradeG, bx - 1, -55, 2, 3, 0x6b4b2d);
+    }
+    line(tradeG, -38, -58, 38, -58, 2, 0x2a1d12);
+    this.scenery.addChild(tradeG);
+    tradeG.x = 4910; tradeG.y = 600;
+    this.stations.push({ type: 'trade', x: 4960, y: 600, range: 92, mult: 0.9, label: 'Борисыч скупает' });
+
+    // мастерская
+    const shopG = new PIXI.Graphics();
+    rect(shopG, -40, -35, 80, 8, 0x4d3725);
+    rect(shopG, -35, -27, 10, 27, 0x3a2a1d);
+    rect(shopG, 25, -27, 10, 27, 0x3a2a1d);
+    rect(shopG, -34, -47, 30, 6, 0x6d4d31);
+    line(shopG, -22, -47, -22, -56, 3, 0x8a6b45);
+    circle(shopG, -22, -57, 4, 0x9fb6b8);
+    rect(shopG, 10, -43, 22, 4, 0x8a6b45);
+    rect(shopG, 10, -48, 4, 9, 0x8a6b45);
+    this.scenery.addChild(shopG);
+    shopG.x = 4665; shopG.y = 600;
+    this.stations.push({ type: 'shop', x: 4665, y: 600, range: 86 });
+
+    // прилавок на площади — уже нарисованная палатка
+    this.stations.push({ type: 'trade', x: 7720, y: 600, range: 94, mult: 1.12, label: 'Клава покупает' });
+
+    // огород
+    const bedXs = [820, 870, 920];
+    bedXs.forEach((x, i) => {
+      const c = new PIXI.Container();
+      c.x = x; c.y = 600;
+      const g = new PIXI.Graphics();
+      c.addChild(g);
+      this.scenery.addChild(c);
+      this.gardenBeds.push({ x, index: i, container: c, graphics: g });
+    });
+    this.updateGarden(this.game.progress ? this.game.progress.garden : null);
+  }
+
+  updateGarden(progressGarden) {
+    if (!this.gardenBeds.length) return;
+    const beds = progressGarden || (this.game.progress && this.game.progress.garden) || [];
+    for (const bed of this.gardenBeds) {
+      const state = beds[bed.index] || { stage: 0, watered: false };
+      bed.graphics.clear();
+      drawGardenBed(bed.graphics, 0, 0, state.stage, state.watered);
+    }
+  }
+
+  setDay(day) {
+    this.day = day;
+    this.updateGates();
+    if (this.skySprite && this.skyVariants) {
+      this.skySprite.texture = this.skyVariants[U.clamp(day - 1, 0, 2)];
+    }
+    this.starFactor = day === 2 ? 0.35 : day === 3 ? 0.6 : 1;
+    if (this.dayTint) {
+      this.dayTint.alpha = day === 2 ? 0.045 : day === 3 ? 0.06 : 0;
+    }
+    if (this.game && this.game.ui && this.game.ui.hud) this.game.ui.updateHUD();
+    if (this.game && this.game.world) this.updateGarden(this.game.progress.garden);
+    // Борисыч на третий день ждёт на площади
+    if (this.borisFinal) {
+      const bx = day >= 3 ? 8500 : 5290;
+      this.borisFinal.x = bx;
+      this.borisFinal.container.x = bx;
+    }
+  }
+
+  resetDaily() {
+    const side = this.game && this.game.progress ? this.game.progress.side : {};
+    for (const c of this.collectibles) {
+      if (c.type === 'flashlight' && side.flashlight && side.flashlight !== 'none' && side.flashlight !== 'search') continue;
+      if (c.type === 'lure' && side.lure && side.lure !== 'none' && side.lure !== 'search') continue;
+      c.collected = false;
+      c.collectT = 0;
+      c.container.visible = true;
+      c.container.alpha = 1;
+      c.container.scale.set(1);
+      c.container.x = c.baseX;
+    }
+    this.updateGarden(this.game.progress ? this.game.progress.garden : null);
+  }
+
+  applyProgress(progress, flags) {
+    if (flags && flags.borisIntro && this.borisIntro) {
+      this.borisIntro.gone = true;
+      this.borisIntro.container.visible = false;
+    }
+    this.setDay(progress.day || 1);
+    this.resetDaily();
+    this.updateGarden(progress.garden);
   }
 
   drawBrokenBridge(g) {
@@ -894,10 +1128,25 @@ class World {
       const s = add(x, y, 38, 0xffd38a, 0.24, 2.4);
       s.blendMode = PIXI.BLEND_MODES.ADD;
     }
+    // мельница
+    add(7038, 500, 240, 0xffb35e, 0.2, 1.15);
+    add(7000, 598, 360, 0xffa64a, 0.09, 0.8, 0.3);
+    add(7130, 540, 160, 0xa9d6dc, 0.12, 1.4);
+    // площадь
+    add(7565, 490, 240, 0xffb35e, 0.18, 1.2);
+    add(8970, 500, 260, 0xffb35e, 0.18, 1.3);
+    add(9200, 500, 180, 0xffb35e, 0.14, 1.0);
+    add(7720, 540, 260, 0xffc36b, 0.18, 1.3);
+    add(8520, 500, 500, 0xffb45e, 0.16, 0.9);
+    for (let i = 0; i < 16; i++) {
+      const lx = 8280 + i * 29;
+      const ly = 420 + Math.sin(i / 15 * Math.PI) * 16;
+      add(lx, ly, 40, 0xffd38a, 0.25, 2.4);
+    }
     // огоньки-светляки
     const rng = mulberry32(4321);
-    const zones = [[150, 940], [1000, 1900], [2050, 2820], [2950, 4200], [4600, 5750]];
-    for (let i = 0; i < 58; i++) {
+    const zones = [[150, 940], [1000, 1900], [2050, 2820], [2950, 4200], [4600, 5750], [5850, 7350], [7400, 9100]];
+    for (let i = 0; i < 78; i++) {
       const z = zones[Math.floor(rng() * zones.length)];
       const x = z[0] + rng() * (z[1] - z[0]);
       const y = 430 + rng() * 170;
@@ -914,8 +1163,8 @@ class World {
 
   buildForeground() {
     const rng = mulberry32(8877);
-    for (let i = 0; i < 42; i++) {
-      const x = 80 + rng() * 5700;
+    for (let i = 0; i < 70; i++) {
+      const x = 80 + rng() * 9000;
       const baseline = 600;
       const g = new PIXI.Graphics();
       const n = 3 + Math.floor(rng() * 4);
@@ -960,6 +1209,20 @@ class World {
       ['hop', 3270, 423, 'hop1'],
       ['hop', 3700, 298, 'hop2'],
       ['hop', 4130, 468, 'hop3'],
+      // лес и мельница
+      ['berries', 6180, 420, 'berries1'],
+      ['berries', 6570, 405, 'berries2'],
+      ['berries', 7060, 398, 'berries3'],
+      ['mushroom', 6070, 560, 'mush1'],
+      ['mushroom', 6450, 560, 'mush2'],
+      ['mushroom', 7150, 560, 'mush3'],
+      // площадь и дорога
+      ['herb', 7250, 560, 'herb1'],
+      ['herb', 7610, 560, 'herb2'],
+      ['herb', 7980, 560, 'herb3'],
+      // поручения
+      ['flashlight', 7080, 556, 'flashlight'],
+      ['lure', 2890, 560, 'lure'],
     ];
     for (const [type, x, y, id] of items) {
       const c = new Collectible(this.game, type, x, y, id);
@@ -974,6 +1237,9 @@ class World {
       [1810, 600],
       [2930, 600],
       [4180, 600],
+      [5950, 600],
+      [7400, 600],
+      [8130, 600],
     ];
     lanterns.forEach(([x, y], i) => {
       const c = new CheckpointLantern(this, x, y, i);
@@ -984,7 +1250,7 @@ class World {
     // NPC
     const npcDefs = [
       {
-        kind: 'boris', name: 'Борисыч', portrait: 'boris', x: 900, y: 600, facing: -1,
+        kind: 'boris', name: 'Борисыч', portrait: 'boris', x: 960, y: 600, facing: -1,
         lines: (game) => [
           { speaker: 'Борисыч', text: 'Ну здорово, Витя. Три года не виделись. Хорошо выглядишь. Для человека, который должен мне сорок семь тысяч.' },
           { speaker: 'Витя', text: 'Здравствуй, Борисыч. Я верну.' },
@@ -997,40 +1263,67 @@ class World {
       {
         kind: 'zina', name: 'Баба Зина', portrait: 'zina', x: 1490, y: 600, facing: 1,
         lines: (game) => {
-          const honey = game.inventory.honey;
-          if (game.inventory.total() === 9) return [
-            { speaker: 'Баба Зина', text: 'Всё собрал? И мёд, и хмель, и воду? Ну, Витя... Иди. Я в тебя верила.' },
-            { speaker: 'Баба Зина', text: 'Только не говори никому, что я это сказала. У меня репутация.' },
-          ];
-          if (honey >= 3) return [
-            { speaker: 'Баба Зина', text: 'Мёд собрал? Молодец. Только не пей по дороге, слышишь?' },
-            { speaker: 'Витя', text: 'Не пью, баба Зина. Варю.' },
-            { speaker: 'Баба Зина', text: 'Вот и правильно. Вари, милый. Вари.' },
-          ];
-          return [
+          const p = game.progress;
+          const side = p.side.garden;
+          if (side === 'none') return [
             { speaker: 'Баба Зина', text: 'Витенька! Слыхала про долг. Опять, поди, в бутылку смотришь?' },
             { speaker: 'Витя', text: 'Не смотрю, баба Зина. Три года уже.' },
-            { speaker: 'Баба Зина', text: 'Знаю, милый. Прости старую дуру. Мёд у меня есть, да только на верхних полках. Собери три сота с ульев — я туда не залезу.' },
+            { speaker: 'Баба Зина', text: 'Знаю, милый. Прости старую дуру. Мёд у меня есть, да только на верхних полках. Собери три сота — я туда не залезу.' },
             { speaker: 'Витя', text: 'Соберу. Сварю медовуху, как батя варил.' },
-            { speaker: 'Баба Зина', text: 'Вот и славно. Только, Витя... вари — и не пей. Договорились?' },
-            { speaker: 'Витя', text: 'Договорились.' },
+            { speaker: 'Баба Зина', text: 'А земля у двора пустует. На, возьми клубни хмеля. Посадишь в грядки — через день соберёшь. Только полей, слышишь?' },
+            { speaker: 'Витя', text: 'Посажу. Спасибо, баба Зина.' },
+          ];
+          if (side === 'planted') return [
+            { speaker: 'Баба Зина', text: 'Клубни у тебя. Грядки — у двора, три штуки. Сажай, милый. Земля ждёт.' },
+            { speaker: 'Витя', text: 'Сейчас посажу.' },
+            { speaker: 'Баба Зина', text: 'И полей. Хмель любит воду и терпение. Как и люди.' },
+          ];
+          if (side === 'growing') return [
+            { speaker: 'Баба Зина', text: 'Растёт? Вот и славно. Полей, если земля сухая. А через ночь ещё поднимется.' },
+            { speaker: 'Витя', text: 'Поливаю, баба Зина.' },
+            { speaker: 'Баба Зина', text: 'И не пей, Витя. Вари — и отдавай долг. Слышишь?' },
+          ];
+          if (side === 'ripe') return [
+            { speaker: 'Баба Зина', text: 'Глянь-ка, хмель-то какой поднялся! Иди собирай, милый. Это твой урожай.' },
+            { speaker: 'Витя', text: 'Спасибо, баба Зина. Я его в медовуху.' },
+            { speaker: 'Баба Зина', text: 'В медовуху. Конечно. А я думала, ты его на веник пустишь.' },
+          ];
+          return [
+            { speaker: 'Баба Зина', text: 'Всё собрал? И мёд, и хмель, и воду? Ну, Витя... Иди. Я в тебя верила.' },
+            { speaker: 'Баба Зина', text: 'Только не говори никому, что я это сказала. У меня репутация.' },
+            { speaker: 'Витя', text: 'Никому, баба Зина.' },
           ];
         },
       },
       {
         kind: 'stas', name: 'Стас', portrait: 'stas', x: 1730, y: 600, facing: 1,
         lines: (game) => {
-          const water = game.inventory.water;
-          if (game.inventory.total() === 9) return [
-            { speaker: 'Стас', text: 'Ну, Витя... Гляжу на тебя и не узнаю. Собранный какой-то. Злой. Хороший.' },
-            { speaker: 'Витя', text: 'Это не злой, Стас. Это трезвый.' },
-            { speaker: 'Стас', text: 'Страшная сила. Ладно, иди вари. Может, и мне нальёшь, когда всё получится.' },
+          const p = game.progress;
+          const side = p.side.lure;
+          if (side === 'none' && p.day >= 2) return [
+            { speaker: 'Стас', text: 'Витя! Слыхал, ты уже первую партию выгнал. Молодец. Слушай, у меня беда.' },
+            { speaker: 'Витя', text: 'Рыба не клюёт?' },
+            { speaker: 'Стас', text: 'Хуже. Счастливую блесну потерял. Отцовскую, между прочим. Камыши на том берегу обыскал — нету. Может, ты глазастее?' },
+            { speaker: 'Витя', text: 'Найду. За рекой, в камышах.' },
+            { speaker: 'Стас', text: 'Вот спасибо. А я пока... посторожу воду. Кто-то же должен.' },
           ];
-          if (water >= 3) return [
-            { speaker: 'Стас', text: 'Воду набрал? Хорошая. Ключевая, не то что из колодца.' },
-            { speaker: 'Стас', text: 'Слушай... а медовуха твоя будет крепкая?' },
-            { speaker: 'Витя', text: 'Не знаю. Я не пью.' },
-            { speaker: 'Стас', text: 'Это ты зря. То есть... молодец. Иди, иди.' },
+          if (side === 'search') return [
+            { speaker: 'Стас', text: 'Блесна, Витя. Золотая, с крючком. В камышах на том берегу. Я бы сам, но у меня сапоги промокают.' },
+            { speaker: 'Витя', text: 'Уже иду.' },
+          ];
+          if (side === 'found') return [
+            { speaker: 'Стас', text: 'Нашёл?! Дай сюда... Она! Она, родимая! Смотри, как играет на свету.' },
+            { speaker: 'Витя', text: 'Рад, что помог.' },
+            { speaker: 'Стас', text: 'Вот, возьми. Не за блесну — за то, что не прошёл мимо. И это... медовухи оставь. Я в долгу не останусь.' },
+          ];
+          if (side === 'done') return [
+            { speaker: 'Стас', text: 'Рыба клюёт, Витя. Первый раз за месяц. Ты приносишь удачу. Не пей только. Примета плохая.' },
+            { speaker: 'Витя', text: 'Не пью. Варю.' },
+            { speaker: 'Стас', text: 'Вот и правильно. Варить — это тоже ловить. Только улов потом сам себя не съест.' },
+          ];
+          if (p.stage === STAGES.VILLAGE || p.stage === STAGES.BREW3 || p.stage === STAGES.JUDGE) return [
+            { speaker: 'Стас', text: 'Слыхал, сегодня фестиваль? Ты выставляешься? Ну, тогда я приду. С блесной. Для солидности.' },
+            { speaker: 'Витя', text: 'Приходи, Стас.' },
           ];
           return [
             { speaker: 'Стас', text: 'Витя! Сколько лет. Слышал, ты завязал. Молодец.' },
@@ -1046,16 +1339,28 @@ class World {
       {
         kind: 'grisha', name: 'Гриша', portrait: 'grisha', x: 3860, y: 600, facing: 1,
         lines: (game) => {
-          const hops = game.inventory.hop;
-          if (game.inventory.total() === 9) return [
-            { speaker: 'Гриша', text: 'Дядя Витя, а можно я на открытие приду? Я буду главным по фонарикам.' },
-            { speaker: 'Витя', text: 'Ты уже главный по фонарикам, Гриша.' },
-            { speaker: 'Гриша', text: 'Ура! Только маме не говори, что я тут до ночи.' },
+          const p = game.progress;
+          const side = p.side.flashlight;
+          if (side === 'none' && p.day >= 2) return [
+            { speaker: 'Гриша', text: 'Дядя Витя! Я фонарик потерял. На старой мельнице, когда за грибами ходил. Мама убьёт.' },
+            { speaker: 'Витя', text: 'А что ты там делал ночью?' },
+            { speaker: 'Гриша', text: 'Грибы... искал. Ну и хмель, может. Немножко. Ты же меня научил?' },
+            { speaker: 'Витя', text: 'Ничему я тебя такому не учил. Ладно, найду фонарик.' },
+            { speaker: 'Гриша', text: 'Он где-то в мешках у мельницы. Я тебе потом помогать буду! Честно-честно.' },
           ];
-          if (hops >= 3) return [
-            { speaker: 'Гриша', text: 'Три шишки! Ну ты даёшь! Я одну чуть не достал, но она колючая.' },
-            { speaker: 'Витя', text: 'Хмель, Гриша. Он такой.' },
-            { speaker: 'Гриша', text: 'Ага. Ну, я побегу. Мне ещё уроки.' },
+          if (side === 'search') return [
+            { speaker: 'Гриша', text: 'Фонарик, дядя Витя. У мельницы, в мешках. Он железный, с синим стеклом. Я бы сам, но там Пал Палыч ругается.' },
+            { speaker: 'Витя', text: 'Найду.' },
+          ];
+          if (side === 'found') return [
+            { speaker: 'Гриша', text: 'Мой фонарик! Работает! Дядя Витя, ты лучший!' },
+            { speaker: 'Витя', text: 'Не потеряй больше.' },
+            { speaker: 'Гриша', text: 'Не потеряю. Вот, возьми деньги. Я копил на картридж. Но тебе нужнее.' },
+          ];
+          if (side === 'done') return [
+            { speaker: 'Гриша', text: 'Дядя Витя, а на фестивале правда будут судить медовуху? А можно я тоже попробую? В смысле — квас!' },
+            { speaker: 'Витя', text: 'Квас будет. И фонарики.' },
+            { speaker: 'Гриша', text: 'Тогда я главный по фонарикам. Уже.' },
           ];
           return [
             { speaker: 'Гриша', text: 'Дядя Витя! А правда, что ты пиво варишь? Мне пацаны сказали.' },
@@ -1067,20 +1372,162 @@ class World {
         },
       },
       {
-        kind: 'boris', name: 'Борисыч', portrait: 'boris', x: 5290, y: 600, facing: 1,
+        kind: 'pavel', name: 'Пал Палыч', portrait: 'pavel', x: 7160, y: 600, facing: -1,
         lines: (game) => {
-          if (game.inventory.total() < 9) return [
-            { speaker: 'Борисыч', text: 'Собрал? Нет? Ну так иди собирай. Три дня — это не три жизни, Витя.' },
-            { speaker: 'Витя', text: 'Я помню, сколько ты дал.' },
-            { speaker: 'Борисыч', text: 'Даже не думай варить из чего попало. Нужны хмель, мёд и вода. И всё — настоящее.' },
+          const p = game.progress;
+          if (p.stage === STAGES.MILL) return [
+            { speaker: 'Пал Палыч', text: 'Ты, что ли, Витя? Вылитый отец. Только глаза другие. Трезвые.' },
+            { speaker: 'Витя', text: 'Вы знали отца?' },
+            { speaker: 'Пал Палыч', text: 'Знал. Мы тут с ним варили «Отцовское», пока мельница не встала. Потом он умер, а я остался с пустыми мешками.' },
+            { speaker: 'Пал Палыч', text: 'Держи дрожжи. Живые, из старой кадки. И запомни: хмель, мёд, вода — и время. Время важнее всего.' },
+            { speaker: 'Витя', text: 'Сварю. Как он.' },
+            { speaker: 'Пал Палыч', text: 'Свари. Только к вечеру жди гостей. Борисыч не любит, когда долги начинают пахнуть прибылью.' },
+            { speaker: 'Витя', text: 'Значит, встретим.' },
+            { speaker: 'Пал Палыч', text: 'И вот ещё. Гришин фонарик в мешках валяется. Верни пацану, а то он тут всю ночь светил.' },
+          ];
+          if (p.stage === STAGES.BREW2 || p.stage === STAGES.DEFENSE) return [
+            { speaker: 'Пал Палыч', text: 'Пиво не любит суеты. Сначала свари, потом дерись. Хотя с Борисычем и то и другое — одним вечером.' },
+            { speaker: 'Витя', text: 'Я помню.' },
+          ];
+          if (p.stage === STAGES.PAY2 || p.stage === STAGES.SLEEP2) return [
+            { speaker: 'Пал Палыч', text: 'Слыхал, ты выстоял. Отец бы тобой гордился. Он тоже не отдавал чан просто так.' },
+            { speaker: 'Витя', text: 'Спасибо, Пал Палыч.' },
+            { speaker: 'Пал Палыч', text: 'Иди. Фестиваль не ждёт. А я тут... мешки пересчитаю.' },
           ];
           return [
-            { speaker: 'Борисыч', text: 'Явился. Ну?' },
-            { speaker: 'Витя', text: 'Собрал. Хмель, мёд, вода. Всё, как батя варил.' },
-            { speaker: 'Борисыч', text: 'И что, ты правда думаешь, что медовухой отдашь сорок семь тысяч?' },
-            { speaker: 'Витя', text: 'Не знаю. Но я не пью. Я варю. Это разное.' },
-            { speaker: 'Борисыч', text: 'Хм. Вари. Я подожду. Всё равно деваться тебе некуда.' },
-            { speaker: 'Витя', text: 'Найдётся.' },
+            { speaker: 'Пал Палыч', text: 'Мельница стоит, колесо скрипит, зато память жива. Это уже немало.' },
+            { speaker: 'Витя', text: 'Немало.' },
+            { speaker: 'Пал Палыч', text: 'Варку не бросай. И дверь за собой закрывай — тут сквозняк.' },
+          ];
+        },
+      },
+      {
+        kind: 'klava', name: 'Клава', portrait: 'klava', x: 7830, y: 600, facing: -1,
+        lines: (game) => {
+          const p = game.progress;
+          if (p.stage === STAGES.DAY3_START) return [
+            { speaker: 'Клава', text: 'Витя! Ты вовремя. Сегодня «Тихий берег» судят. Нужна праздничная медовуха — с ягодами и травами. Рецепт мой, банка твоя. Приз пополам. Шучу. Почти.' },
+            { speaker: 'Витя', text: 'А судьи кто?' },
+            { speaker: 'Клава', text: 'Судьи — деревня. А деревня любит, когда вкусно и когда честно. Иди вари. Чан у тебя, я знаю.' },
+            { speaker: 'Клава', text: 'Хмель, мёд, вода, ягоды, травы. Всё есть в лесу и на площади. И не вздумай продать праздничную партию до суда — я запомню.' },
+          ];
+          if (p.stage === STAGES.VILLAGE || p.stage === STAGES.BREW3) return [
+            { speaker: 'Клава', text: 'Ну что, «Зимний берег» готов? Неси сюда. Судьи уже скучают, а Борисыч делает вид, что ему всё равно.' },
+            { speaker: 'Витя', text: 'Скоро будет.' },
+            { speaker: 'Клава', text: 'Смотри, Витя. Сегодня деревня будет пить твою медовуху и вспоминать твоего отца. Не подведи.' },
+          ];
+          if (p.stage === STAGES.JUDGE) {
+            const hasFestival = (p.bottles || []).some(b => b.recipe === 'festival');
+            if (!hasFestival) return [
+              { speaker: 'Клава', text: 'Ну? Где медовуха? Пустые руки на суд не пускают.' },
+              { speaker: 'Витя', text: 'Сейчас. Ещё одна партия.' },
+              { speaker: 'Клава', text: 'Вари. Ингредиенты в лесу и на площади. И не продавай праздничную — я проверю.' },
+            ];
+            return [
+              { speaker: 'Клава', text: 'Ну? Где медовуха? Давай сюда, попробуем.' },
+              { speaker: 'Витя', text: 'Вот. «Зимний берег».' },
+              { speaker: 'Клава', text: 'Так... ягоды, травы, мёд. И хмель. Ох, Витя. Ну-ка, ещё глоток. Для точности.' },
+              { speaker: 'Клава', text: 'Ставлю высокую оценку. И приз — тебе. Деревня любит, когда вкусно и когда честно. А ты, похоже, и то и другое.' },
+            ];
+          }
+          if (p.stage === STAGES.FINALE) return [
+            { speaker: 'Клава', text: 'Иди к Борисычу, Витя. Он у сцены стоит. И не бойся. Сегодня никто не боится.' },
+            { speaker: 'Витя', text: 'Спасибо, Клава.' },
+            { speaker: 'Клава', text: 'Да не за что. Принеси ещё бутылку. В смысле — на следующий год.' },
+          ];
+          if (p.stage === STAGES.DONE) return [
+            { speaker: 'Клава', text: 'А, главный винодел! Медовуха ещё есть? Нет? Тогда иди вари. Ладно, иди отдыхай. Но потом — вари.' },
+            { speaker: 'Витя', text: 'Обязательно.' },
+          ];
+          return [
+            { speaker: 'Клава', text: 'Витя! Ты вовремя. Сегодня «Тихий берег» судят. Нужна праздничная медовуха — с ягодами и травами. Рецепт мой, банка твоя. Приз пополам. Шучу. Почти.' },
+            { speaker: 'Витя', text: 'А судьи кто?' },
+            { speaker: 'Клава', text: 'Судьи — деревня. А деревня любит, когда вкусно и когда честно. Иди вари. Чан у тебя, я знаю.' },
+          ];
+        },
+      },
+      {
+        kind: 'boris', name: 'Борисыч', portrait: 'boris', x: 5290, y: 600, facing: 1,
+        lines: (game) => {
+          const p = game.progress;
+          const s = p.stage;
+          if (s === STAGES.SLEEP1 || s === STAGES.SLEEP2) return [
+            { speaker: 'Борисыч', text: 'Иди спи, Витя. Завтра не станет легче, но станет понятнее.' },
+            { speaker: 'Витя', text: 'Спокойной ночи, Борисыч.' },
+            { speaker: 'Борисыч', text: 'Не ночи. Утру. Иди.' },
+          ];
+          if (s === STAGES.PAY1) {
+            if (p.money >= PAYMENTS[1]) return [
+              { speaker: 'Борисыч', text: 'Давай сюда. Семь тысяч. Живыми, не медовухой.' },
+              { speaker: 'Витя', text: 'Живыми.' },
+              { speaker: 'Борисыч', text: 'Хм. Первый раз за три года ты принёс мне деньги, а не обещания. Это уже почти характер.' },
+              { speaker: 'Борисыч', text: 'Но это только седьмая часть. Иди поспи. Завтра поговорим о старой мельнице.' },
+            ];
+            return [
+              { speaker: 'Борисыч', text: `Семь тысяч, Витя. У тебя ${formatMoney(p.money)} ₽. Ладно. Давай сколько есть. Остальное — потом.` },
+              { speaker: 'Витя', text: 'Отдам. С процентами.' },
+              { speaker: 'Борисыч', text: 'Не надо процентов. Просто не пропади. Иди поспи.' },
+            ];
+          }
+          if (s === STAGES.DAY2_START) return [
+            { speaker: 'Борисыч', text: 'Проснулся. Хорошо. Дорога на мельницу открыта — я велел снять замок.' },
+            { speaker: 'Витя', text: 'Зачем тебе это?' },
+            { speaker: 'Борисыч', text: 'Мне не зачем. Тебе зачем. Там старик Пал Палыч. Он помнит, как твой отец варил настоящее пиво.' },
+            { speaker: 'Борисыч', text: 'Найдёшь его — найди и рецепт. А то твоя медовуха сладкая, как извинения.' },
+            { speaker: 'Витя', text: 'Найду.' },
+          ];
+          if (s === STAGES.MILL || s === STAGES.BREW2) return [
+            { speaker: 'Борисыч', text: 'Мельница в лесу. Иди. И не заставляй меня посылать за тобой людей.' },
+            { speaker: 'Витя', text: 'Ты уже послал.' },
+            { speaker: 'Борисыч', text: 'Это не люди. Это так... напоминание.' },
+          ];
+          if (s === STAGES.DEFENSE) return [
+            { speaker: 'Борисыч', text: 'Не отдай чан, Витя! Я в него деньги вложил! То есть... в тебя. В тебя вложил.' },
+            { speaker: 'Витя', text: 'Помоги лучше.' },
+            { speaker: 'Борисыч', text: 'Я по документам. Документально помогу.' },
+          ];
+          if (s === STAGES.PAY2) {
+            if (p.money >= PAYMENTS[2]) return [
+              { speaker: 'Борисыч', text: 'Пятнадцать тысяч. Считаю.' },
+              { speaker: 'Витя', text: 'Считай.' },
+              { speaker: 'Борисыч', text: 'Сходится. И зачем ты такой честный стал? С тобой же разговаривать не о чем.' },
+              { speaker: 'Борисыч', text: 'Иди спи. Завтра фестиваль. И... Витя. Ты видел, кто у мельницы крутился? Неважно. Иди.' },
+            ];
+            return [
+              { speaker: 'Борисыч', text: `Пятнадцать тысяч. У тебя ${formatMoney(p.money)} ₽. Ладно. Давай сколько есть. Фестиваль всё спишет.` },
+              { speaker: 'Витя', text: 'Спишет?' },
+              { speaker: 'Борисыч', text: 'Шучу. Но давай сколько есть. Мне ещё с тобой на площадь идти.' },
+            ];
+          }
+          if (s === STAGES.DAY3_START) return [
+            { speaker: 'Борисыч', text: 'Фестиваль, Витя. Иди на площадь. Клава тебе всё расскажет. Она любит рассказывать.' },
+            { speaker: 'Витя', text: 'А ты?' },
+            { speaker: 'Борисыч', text: 'А я посмотрю. Мне за это не платят, но я посмотрю.' },
+          ];
+          if (s === STAGES.VILLAGE || s === STAGES.BREW3) return [
+            { speaker: 'Борисыч', text: 'Сначала медовуха, потом разговоры. Клава ждёт. И судьи ждут. И вообще все ждут.' },
+            { speaker: 'Витя', text: 'Я понял.' },
+          ];
+          if (s === STAGES.JUDGE) return [
+            { speaker: 'Борисыч', text: 'Неси судьям. И не смотри на меня так. Я не судья. Я... наблюдатель.' },
+            { speaker: 'Витя', text: 'Наблюдай.' },
+          ];
+          if (s === STAGES.FINALE) return [
+            { speaker: 'Борисыч', text: 'Ну вот. Стоишь. С медовухой. А три дня назад стоял без денег и без лица.' },
+            { speaker: 'Витя', text: 'Три дня назад я ещё не знал, что у меня есть берег.' },
+            { speaker: 'Борисыч', text: 'Твой отец был моим другом. И должником. Как ты. Только он умер, не успев отдать. А ты — успел.' },
+            { speaker: 'Витя', text: 'Сколько осталось?' },
+            { speaker: 'Борисыч', text: `Столько же, сколько было: ${formatMoney(Math.max(0, DEBT_TOTAL - p.debtPaid))} ₽. Но я вижу, что ты принёс. И вижу, что ты не пьёшь.` },
+            { speaker: 'Витя', text: 'Я не пью. Я варю.' },
+            { speaker: 'Борисыч', text: 'Знаю. Поэтому слушай: отдаёшь остаток — и остаёшься здесь хозяином. А я буду рядом. Считать. Иногда — помогать.' },
+          ];
+          if (s === STAGES.DONE) return [
+            { speaker: 'Борисыч', text: 'Ну что, хозяин? Ещё по одной? В смысле — ещё партию. Я в доле.' },
+            { speaker: 'Витя', text: 'В доле. Но варить буду я.' },
+          ];
+          return [
+            { speaker: 'Борисыч', text: 'Чан ждёт, Витя. И я жду. И все ждут. Не тяни.' },
+            { speaker: 'Витя', text: 'Я не тяну. Я варю.' },
           ];
         },
       },
@@ -1092,7 +1539,7 @@ class World {
       const npc = new NPC(this.game, def);
       this.npcs.push(npc);
       this.entityLayer.addChild(npc.container);
-      if (def.x === 900) this.borisIntro = npc;
+      if (def.x === 960) this.borisIntro = npc;
       if (def.x === 5290) this.borisFinal = npc;
     });
 
@@ -1101,8 +1548,8 @@ class World {
     this.signs = [
       { x: 635, y: 600, range: 74, lines: [
         { speaker: 'Надпись', text: 'МЕДВЕДЕВО. Ночь первая.' },
-        { speaker: 'Надпись', text: 'A / D — идти. Пробел — прыжок. E — говорить. M — звук.' },
-        { speaker: 'Надпись', text: 'Если стало совсем темно — ищи фонарь.' },
+        { speaker: 'Надпись', text: 'A / D — идти. Пробел — прыжок. E — действие. F — метла.' },
+        { speaker: 'Надпись', text: 'TAB — журнал. T — дороги. M — звук. Если темно — ищи фонарь.' },
       ] },
       { x: 4455, y: 600, range: 74, lines: [
         { speaker: 'Надпись', text: 'ПИВОВАРНЯ «ТИХИЙ БЕРЕГ».' },
@@ -1110,6 +1557,14 @@ class World {
       ] },
       { x: 3690, y: 600, range: 70, lines: [
         { speaker: 'Надпись', text: 'ХМЕЛЬ. Не трогать. Это не для пацанов. — В.' },
+      ] },
+      { x: 5940, y: 600, range: 74, lines: [
+        { speaker: 'Надпись', text: 'СТАРАЯ МЕЛЬНИЦА →' },
+        { speaker: 'Надпись', text: 'Ночью не ходи. Днём тоже. Но если очень надо — иди.' },
+      ] },
+      { x: 7410, y: 600, range: 74, lines: [
+        { speaker: 'Надпись', text: 'ПЛОЩАДЬ «ТИХИЙ БЕРЕГ».' },
+        { speaker: 'Надпись', text: 'Фестиваль. Здесь судят медовуху и людей. Иногда — справедливо.' },
       ] },
     ];
 
@@ -1262,7 +1717,7 @@ class World {
 
     // звёзды
     for (const s of this.stars) {
-      s.alpha = s.baseAlpha * (0.72 + 0.28 * Math.sin(t * s.twinkle + s.phase));
+      s.alpha = s.baseAlpha * (0.72 + 0.28 * Math.sin(t * s.twinkle + s.phase)) * this.starFactor;
     }
     this.moonHalo.alpha = 0.30 + Math.sin(t * 0.5) * 0.035;
     this.moonCore.alpha = 0.94 + Math.sin(t * 1.2) * 0.03;
@@ -1656,8 +2111,38 @@ class World {
       const d = Math.abs(player.cx - this.vat.x);
       if (d < this.vat.range && d < bestD) {
         bestD = d;
-        const all = this.game.inventory.total() >= 9;
-        best = { type: 'vat', prompt: all ? 'E — сварить медовуху' : 'E — осмотреть чан', x: this.vat.x, y: this.vat.y };
+        const stage = this.game.progress.stage;
+        const prompt = stage === STAGES.INTRO ? 'E — осмотреть чан' : 'E — варить';
+        best = { type: 'vat', prompt, x: this.vat.x, y: this.vat.y };
+      }
+    }
+    for (const st of this.stations) {
+      const d = Math.abs(player.cx - st.x);
+      if (d < st.range && d < bestD) {
+        let prompt = 'E — действие';
+        if (st.type === 'bed') {
+          const s = this.game.progress.stage;
+          prompt = (s === STAGES.SLEEP1 || s === STAGES.SLEEP2) ? 'E — лечь спать' : 'E — войти в дом';
+        } else if (st.type === 'trade') {
+          const count = this.game.countBottles ? this.game.countBottles() : 0;
+          prompt = count > 0 ? `E — продать ${count} бут.` : 'E — прилавок';
+        } else if (st.type === 'shop') {
+          prompt = 'E — мастерская';
+        }
+        bestD = d;
+        best = { type: st.type, station: st, spot: st, prompt, x: st.x, y: st.y };
+      }
+    }
+    for (const bed of this.gardenBeds) {
+      const d = Math.abs(player.cx - bed.x);
+      if (d < 52 && d < bestD) {
+        const state = this.game.progress.garden[bed.index] || { stage: 0 };
+        let prompt = 'E — грядка';
+        if (state.stage === 0) prompt = this.game.progress.seeds > 0 ? 'E — посадить хмель' : 'E — пустая грядка';
+        else if (state.stage >= 3) prompt = 'E — собрать хмель';
+        else prompt = 'E — полить';
+        bestD = d;
+        best = { type: 'garden', bed, prompt, x: bed.x, y: 600 };
       }
     }
     return best;

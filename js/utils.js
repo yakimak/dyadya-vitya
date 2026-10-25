@@ -69,6 +69,11 @@ function mulberry32(a) {
   };
 }
 
+function formatMoney(n) {
+  const v = Math.max(0, Math.floor(n || 0));
+  return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
 function rgba(hex, a) {
   const r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255;
   return `rgba(${r},${g},${b},${a})`;
@@ -336,6 +341,7 @@ class Input {
   jump() { return this.isDown('Space', 'KeyW', 'ArrowUp', 'KeyZ'); }
   jumpPressed() { return this.wasPressed('Space', 'KeyW', 'ArrowUp', 'KeyZ'); }
   interactPressed() { return this.wasPressed('KeyE', 'Enter', 'NumpadEnter', 'MouseInteract'); }
+  attackPressed() { return this.wasPressed('KeyF', 'KeyJ'); }
   pausePressed() { return this.wasPressed('Escape', 'KeyP'); }
 }
 

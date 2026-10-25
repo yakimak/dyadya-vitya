@@ -574,6 +574,100 @@ function drawWaterIcon(g, x, y, s) {
   g.lineTo(x + 3 * s, y + 8 * s);
 }
 
+function drawBerriesIcon(g, x, y, s) {
+  s = s || 1;
+  // лист
+  g.beginFill(0x526b45, 0.95);
+  g.drawEllipse(x + 6 * s, y - 9 * s, 7 * s, 4 * s);
+  g.endFill();
+  g.lineStyle(1.2 * s, 0x4c3b2a, 0.9);
+  g.moveTo(x, y + 2 * s); g.lineTo(x + 2 * s, y - 9 * s);
+  // ягоды
+  const pts = [[-4, 2], [4, 2], [-1, 8], [6, 7], [-7, 8]];
+  for (const [dx, dy] of pts) {
+    g.beginFill(0xa64c5d, 0.98);
+    g.drawCircle(x + dx * s, y + dy * s, 4.6 * s);
+    g.endFill();
+    g.beginFill(0xd88894, 0.45);
+    g.drawCircle(x + (dx - 1) * s, y + (dy - 1.5) * s, 1.6 * s);
+    g.endFill();
+  }
+}
+
+function drawMushroomIcon(g, x, y, s) {
+  s = s || 1;
+  g.beginFill(0xe3d6b8, 0.95);
+  g.drawRoundedRect(x - 3 * s, y - 1 * s, 6 * s, 13 * s, 2 * s);
+  g.endFill();
+  g.beginFill(0xb46b48, 1);
+  g.drawEllipse(x, y - 4 * s, 14 * s, 8 * s);
+  g.endFill();
+  g.beginFill(0xd18a60, 0.8);
+  g.drawEllipse(x - 3 * s, y - 6 * s, 7 * s, 3 * s);
+  g.endFill();
+  g.beginFill(0xe3c8a6, 0.8);
+  g.drawCircle(x + 4 * s, y - 5 * s, 1.4 * s);
+  g.drawCircle(x - 5 * s, y - 3 * s, 1.1 * s);
+  g.endFill();
+}
+
+function drawHerbIcon(g, x, y, s) {
+  s = s || 1;
+  g.lineStyle(1.4 * s, 0x5f7a4b, 0.95);
+  g.moveTo(x, y + 12 * s); g.lineTo(x, y - 10 * s);
+  const leaves = [[-1, -7, -6], [1, -3, 6], [-1, 1, -7], [1, 5, 7], [-1, 9, -5]];
+  for (const [dx, dy, lx] of leaves) {
+    g.beginFill(0x9bbb72, 0.95);
+    g.drawEllipse(x + lx * 0.5 * s, y + dy * s, 7 * s, 3 * s);
+    g.endFill();
+    g.beginFill(0xc0d49a, 0.5);
+    g.drawEllipse(x + lx * 0.4 * s, y + dy * s - 0.5 * s, 3.2 * s, 1.2 * s);
+    g.endFill();
+  }
+}
+
+function drawYeastIcon(g, x, y, s) {
+  s = s || 1;
+  g.beginFill(0xd9c9a4, 0.95);
+  g.drawRoundedRect(x - 8 * s, y - 9 * s, 16 * s, 20 * s, 4 * s);
+  g.endFill();
+  g.beginFill(0xb08c5b, 1);
+  g.drawRoundedRect(x - 9 * s, y - 12 * s, 18 * s, 5 * s, 2 * s);
+  g.endFill();
+  g.beginFill(0xf0e4c6, 0.8);
+  g.drawCircle(x - 2 * s, y + 2 * s, 2 * s);
+  g.drawCircle(x + 3 * s, y + 5 * s, 1.6 * s);
+  g.drawCircle(x + 1 * s, y - 2 * s, 1.2 * s);
+  g.endFill();
+  g.lineStyle(1 * s, 0x8a6a42, 0.6);
+  g.moveTo(x - 4 * s, y + 12 * s); g.lineTo(x + 4 * s, y + 12 * s);
+}
+
+function drawItemIcon(g, type, x, y, s) {
+  if (type === 'honey') drawHoneyIcon(g, x, y, s);
+  else if (type === 'water') drawWaterIcon(g, x, y, s);
+  else if (type === 'berries') drawBerriesIcon(g, x, y, s);
+  else if (type === 'mushroom') drawMushroomIcon(g, x, y, s);
+  else if (type === 'herb') drawHerbIcon(g, x, y, s);
+  else if (type === 'yeast') drawYeastIcon(g, x, y, s);
+  else drawHopIcon(g, x, y, s, 0x9eac61);
+}
+
+function drawHeart(g, x, y, size, filled, color) {
+  const s = size / 12;
+  g.lineStyle(0, 0, 0);
+  g.beginFill(filled ? (color || 0xc85b4f) : 0x252d38, filled ? 1 : 0.8);
+  g.drawCircle(x - 4 * s, y - 2 * s, 4.2 * s);
+  g.drawCircle(x + 4 * s, y - 2 * s, 4.2 * s);
+  g.drawPolygon([x - 8.1 * s, y + 0.5 * s, x + 8.1 * s, y + 0.5 * s, x, y + 10 * s]);
+  g.endFill();
+  if (filled) {
+    g.beginFill(0xf0a08e, 0.5);
+    g.drawCircle(x - 4 * s, y - 3.5 * s, 1.6 * s);
+    g.endFill();
+  }
+}
+
 function drawIngredient(container, type, x, y, s) {
   const g = new PIXI.Graphics();
   if (type === 'honey') drawHoneyIcon(g, 0, 0, s);
@@ -795,8 +889,92 @@ function buildZina() {
   return { root, body, phase: Math.random() * 9 };
 }
 
-function buildStas() {
+function buildPavel() {
   const root = new PIXI.Container();
+  makeShadow(root, 1.0);
+  const body = new PIXI.Container();
+  root.addChild(body);
+  const g = new PIXI.Graphics();
+  // ноги
+  rect(g, -9, -28, 7, 28, 0x2c2b27);
+  rect(g, 3, -28, 7, 28, 0x302f2a);
+  rect(g, -11, -4, 10, 4, 0x171611);
+  rect(g, 1, -4, 10, 4, 0x171611);
+  // длинное пальто
+  poly(g, [[-14, -58], [-16, -28], [-12, -20], [12, -20], [16, -28], [14, -58], [8, -62], [-8, -62]], 0x42483f);
+  poly(g, [[-14, -56], [-6, -60], [-6, -22], [-13, -23]], 0x4f564a);
+  rect(g, -3, -56, 6, 34, 0x33382f);
+  // шарф
+  rect(g, -12, -62, 24, 6, 0x6b4e3a);
+  // руки
+  rect(g, -19, -52, 6, 22, 0x393f36);
+  rect(g, 13, -52, 6, 22, 0x454c41);
+  circle(g, -16, -29, 3.6, 0xc9966e);
+  circle(g, 16, -29, 3.6, 0xc9966e);
+  // трость
+  line(g, 19, -50, 25, 0, 2, 0x6d5638);
+  circle(g, 19, -52, 3, 0x8a6d44);
+  // голова
+  circle(g, 0, -70, 10, 0xc9966e);
+  circle(g, 4, -69, 4, 0xb07a56, 0.35);
+  // глаза
+  circle(g, -4, -71, 1.3, 0x20211e);
+  circle(g, 4, -71, 1.3, 0x20211e);
+  // борода
+  poly(g, [[-9, -66], [-8, -56], [-3, -51], [2, -51], [8, -56], [9, -66], [4, -62], [0, -60], [-4, -62]], 0x8e8c80);
+  // кепка
+  ellipse(g, 0, -79, 13, 3.5, 0x383b36);
+  poly(g, [[-9, -79], [-7, -86], [6, -86], [10, -79]], 0x42453f);
+  rect(g, 3, -80, 10, 3, 0x2f322d);
+  // пар
+  circle(g, 8, -65, 3, 0xd9e4e6, 0.12);
+  body.addChild(g);
+  return { root, body, phase: Math.random() * 9, glow: null };
+}
+
+function buildKlava() {
+  const root = new PIXI.Container();
+  makeShadow(root, 1.0);
+  const body = new PIXI.Container();
+  root.addChild(body);
+  const g = new PIXI.Graphics();
+  // юбка
+  poly(g, [[-13, -30], [13, -30], [20, 0], [-20, 0]], 0x463a3b);
+  poly(g, [[-12, -30], [-2, -30], [0, 0], [-17, 0]], 0x564749);
+  // кофта
+  poly(g, [[-12, -56], [-14, -30], [14, -30], [12, -56], [7, -60], [-7, -60]], 0x5b4a48);
+  rect(g, -13, -36, 26, 5, 0x7d4d3f);
+  // фартук
+  poly(g, [[-8, -38], [8, -38], [10, -2], [-10, -2]], 0x79654f);
+  // руки и корзина
+  rect(g, -18, -52, 6, 23, 0x51413f);
+  rect(g, 12, -52, 6, 23, 0x5b4a48);
+  circle(g, 15, -29, 3.6, 0xcf9e78);
+  rect(g, 13, -43, 15, 15, 0x6a4e2f);
+  line(g, 13, -43, 28, -43, 2, 0x8e6a3f);
+  circle(g, 18, -46, 4, 0xb84e4e, 0.8);
+  circle(g, 24, -47, 3, 0xd8a04a, 0.8);
+  // голова
+  circle(g, 0, -68, 10, 0xd3a078);
+  circle(g, 5, -67, 5, 0xbc8965, 0.4);
+  // глаза
+  circle(g, -4, -69, 1.4, 0x26221f);
+  circle(g, 4, -69, 1.4, 0x26221f);
+  // улыбка
+  line(g, -4, -62, 4, -62, 1.2, 0x8a5540);
+  // серьги
+  circle(g, -9, -64, 1.8, 0xd6b36a, 0.9);
+  circle(g, 9, -64, 1.8, 0xd6b36a, 0.9);
+  // платок
+  poly(g, [[-12, -72], [-8, -80], [0, -82], [8, -80], [12, -72], [10, -64], [5, -68], [0, -65], [-5, -68], [-10, -64]], 0x7d4650);
+  poly(g, [[-8, -73], [0, -79], [8, -73], [5, -67], [0, -70], [-5, -67]], 0x96555d);
+  // бусы
+  for (let i = 0; i < 4; i++) circle(g, -6 + i * 4, -56 + Math.abs(i - 1.5) * 2, 1.4, 0xd8b06a, 0.8);
+  body.addChild(g);
+  return { root, body, phase: Math.random() * 9, glow: null };
+}
+
+function buildStas() {  const root = new PIXI.Container();
   makeShadow(root, 1);
   const body = new PIXI.Container();
   root.addChild(body);
@@ -948,6 +1126,217 @@ function buildBorisych() {
   cig.x = 19; cig.y = -58;
   body.addChild(cig);
   return { root, body, phase: Math.random() * 9, cig };
+}
+
+function drawGardenBed(g, x, baseY, stage, watered) {
+  // деревянный короб
+  rect(g, x - 26, baseY - 16, 52, 16, 0x3b2b1e);
+  rect(g, x - 23, baseY - 13, 46, 4, 0x2a1d14);
+  rect(g, x - 23, baseY - 8, 46, 8, 0x261a12);
+  // земля
+  ellipse(g, x, baseY - 8, 42, 6, 0x2a2118);
+  // росток
+  if (stage > 0) {
+    const h = stage === 1 ? 9 : stage === 2 ? 20 : 32;
+    line(g, x, baseY - 10, x - 1, baseY - 10 - h, 2, 0x52673f);
+    for (let i = 0; i < (stage === 1 ? 2 : 5); i++) {
+      const yy = baseY - 13 - h * (0.25 + i * 0.14);
+      const dir = i % 2 ? 1 : -1;
+      line(g, x, yy, x + dir * (5 + i * 2), yy - 4, 1.4, 0x6d8552, 0.9);
+      ellipse(g, x + dir * (5 + i * 2), yy - 4, 7, 3, 0x6f8a52, 0.85);
+    }
+    if (stage >= 3) {
+      drawHop(g, x + 3, baseY - 10 - h, 0.5, 0x9aa85c);
+      drawHop(g, x - 4, baseY - 6 - h * 0.8, 0.42, 0x8c9a54);
+    }
+  }
+  if (watered) {
+    g.beginFill(0x8fc9d5, 0.35);
+    g.drawEllipse(x, baseY - 9, 13, 2.5);
+    g.endFill();
+  }
+}
+
+function drawGate(g, x, baseY, open) {
+  // столбы
+  rect(g, x - 70, baseY - 168, 12, 168, 0x3b2c1f);
+  rect(g, x + 58, baseY - 168, 12, 168, 0x3b2c1f);
+  circle(g, x - 64, baseY - 168, 6, 0x57412b);
+  circle(g, x + 64, baseY - 168, 6, 0x57412b);
+  line(g, x - 75, baseY - 150, x + 75, baseY - 150, 3, 0x2a1e14, 0.7);
+  if (open) {
+    // створки распахнуты
+    line(g, x - 58, baseY - 146, x - 96, baseY - 124, 6, 0x4a3522);
+    line(g, x - 56, baseY - 90, x - 98, baseY - 72, 6, 0x4a3522);
+    line(g, x + 58, baseY - 146, x + 96, baseY - 124, 6, 0x4a3522);
+    line(g, x + 56, baseY - 90, x + 98, baseY - 72, 6, 0x4a3522);
+    line(g, x - 60, baseY - 70, x + 60, baseY - 70, 4, 0x2a1e14, 0.5);
+  } else {
+    // запертые створки
+    for (let i = 0; i < 4; i++) {
+      rect(g, x - 58 + i * 29, baseY - 142, 26, 112, i % 2 ? 0x4c3622 : 0x402d1c);
+      line(g, x - 58 + i * 29, baseY - 142, x - 32 + i * 29, baseY - 30, 1.5, 0x2b1e13, 0.7);
+    }
+    line(g, x - 60, baseY - 128, x + 60, baseY - 128, 5, 0x332417);
+    line(g, x - 60, baseY - 64, x + 60, baseY - 64, 5, 0x332417);
+    // замок
+    circle(g, x, baseY - 96, 9, 0x8b744a);
+    circle(g, x, baseY - 96, 5, 0x2a2017);
+    line(g, x, baseY - 88, x, baseY - 78, 2, 0x2a2017);
+  }
+}
+
+function drawMill(g, x, baseY) {
+  const w = 280, h = 210;
+  const top = baseY - h;
+  // сруб
+  rect(g, x - w / 2, top, w, h, 0x33271c);
+  for (let i = 0; i < 11; i++) {
+    rect(g, x - w / 2, top + i * 19, w, 16, i % 2 ? 0x3d2e20 : 0x33271c);
+    line(g, x - w / 2, top + 17 + i * 19, x + w / 2, top + 17 + i * 19, 1, 0x1c140e, 0.7);
+  }
+  // крыша
+  poly(g, [[x - w / 2 - 28, top + 8], [x, top - 72], [x + w / 2 + 28, top + 8],
+    [x + w / 2 + 18, top + 22], [x, top - 54], [x - w / 2 - 18, top + 22]], 0x1c2021);
+  line(g, x - w / 2 - 28, top + 8, x, top - 72, 2, 0x7c8b87, 0.2);
+  // дверь и окна
+  rect(g, x - 42, baseY - 72, 32, 72, 0x241811);
+  rect(g, x - 37, baseY - 67, 22, 67, 0x3c2a1b);
+  circle(g, x - 20, baseY - 36, 2.5, 0xc9a25c);
+  const win = [[x + 20, top + 52], [x + 70, top + 52]];
+  win.forEach(([wx, wy], i) => {
+    rect(g, wx - 3, wy - 3, 26, 28, 0x17110c);
+    rect(g, wx, wy, 20, 22, i ? 0xffc46e : 0xd69043, 0.9);
+    line(g, wx + 10, wy, wx + 10, wy + 22, 2, 0x241a13);
+  });
+  // колесо
+  const cx = x + w / 2 + 62, cy = baseY - 60;
+  circle(g, cx, cy, 58, 0x211813);
+  line(g, cx, cy, cx + 58, cy, 52, 0x2b1d14, 0);
+  // обод
+  g.lineStyle(7, 0x5e4530, 0.95); g.drawCircle(cx, cy, 58); g.lineStyle(2, 0x8e6b44, 0.4); g.drawCircle(cx, cy, 52);
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * TAU;
+    g.lineStyle(3, 0x4f3926, 0.95);
+    g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * 52, cy + Math.sin(a) * 52);
+    g.lineStyle(2, 0x2c1e14, 0.8);
+    g.moveTo(cx + Math.cos(a) * 50, cy + Math.sin(a) * 50);
+    g.lineTo(cx + Math.cos(a) * 62, cy + Math.sin(a) * 62);
+  }
+  circle(g, cx, cy, 8, 0x332316);
+  // вода и брызги
+  ellipse(g, cx, baseY, 88, 11, 0x375b66, 0.55);
+  ellipse(g, cx, baseY - 2, 66, 6, 0x7fb0ba, 0.18);
+  for (let i = 0; i < 5; i++) {
+    circle(g, cx - 20 + i * 14, baseY - 10 - (i % 3) * 8, 4 + (i % 2) * 3, 0xcfe3e6, 0.08);
+  }
+  // мешки и бочка
+  drawBarrel(g, x - w / 2 + 26, baseY, 30, 40);
+  poly(g, [[x + 18, baseY], [x + 12, baseY - 30], [x + 30, baseY - 46], [x + 48, baseY - 28], [x + 44, baseY]], 0x6f5c42);
+  line(g, x + 18, baseY - 30, x + 34, baseY - 22, 2, 0x4b3d2b);
+}
+
+function drawVillageHouse(g, x, baseY, w, h, color, roofColor, seed) {
+  const top = baseY - h;
+  const rng = mulberry32(seed || 1);
+  rect(g, x, top, w, h, color || 0x45372a);
+  rect(g, x, top + 4, w, h - 4, lighten(color || 0x45372a, 0.08));
+  for (let i = 0; i < h / 16; i++) line(g, x, top + i * 16, x + w, top + i * 16, 1, 0x2a2119, 0.4);
+  poly(g, [[x - 16, top + 6], [x + w / 2, top - 48], [x + w + 16, top + 6],
+    [x + w + 10, top + 16], [x + w / 2, top - 36], [x - 10, top + 16]], roofColor || 0x2a3032);
+  // окна
+  const n = Math.max(1, Math.floor(w / 55));
+  for (let i = 0; i < n; i++) {
+    const wx = x + 14 + i * (w - 28) / n;
+    const wy = top + 26 + rng() * 12;
+    rect(g, wx - 2, wy - 2, 24, 26, 0x1b130d);
+    rect(g, wx, wy, 20, 22, i % 2 ? 0xffc46e : 0xe9a75e, 0.88);
+    line(g, wx + 10, wy, wx + 10, wy + 22, 2, 0x2c1d12);
+    line(g, wx, wy + 11, wx + 20, wy + 11, 2, 0x2c1d12);
+  }
+  // дверь
+  const dx = x + w - 32;
+  rect(g, dx, baseY - 48, 22, 48, 0x2d1f15);
+  rect(g, dx + 3, baseY - 45, 16, 45, 0x4a3220);
+  // ставни/цветы
+  if (rng() < 0.7) {
+    rect(g, x + 10, baseY - 20, 24, 7, 0x3f2c1c);
+    for (let i = 0; i < 4; i++) circle(g, x + 14 + i * 5, baseY - 22, 2.2, i % 2 ? 0x9f6b6b : 0xd6b35f);
+  }
+  // тёплый дым
+  for (let i = 0; i < 3; i++) circle(g, x + w * 0.7 + i * 5, top - 38 - i * 8, 8 + i * 4, 0xbec5c8, 0.045);
+}
+
+function drawStall(g, x, baseY, w, awning) {
+  // стойка
+  rect(g, x, baseY - 44, w, 44, 0x4a3322);
+  rect(g, x + 4, baseY - 40, w - 8, 36, 0x5b4028);
+  for (let i = 0; i < 5; i++) line(g, x + 8, baseY - 8 - i * 7, x + w - 8, baseY - 8 - i * 7, 1, 0x372618, 0.5);
+  // столбы
+  line(g, x + 5, baseY - 44, x + 5, baseY - 116, 5, 0x3a2a1d);
+  line(g, x + w - 5, baseY - 44, x + w - 5, baseY - 116, 5, 0x3a2a1d);
+  // навес
+  const c1 = awning || 0x8d4c3f;
+  const c2 = 0xe3d0ab;
+  for (let i = 0; i < 6; i++) {
+    poly(g, [[x - 12 + i * (w + 24) / 6, baseY - 150], [x - 12 + (i + 1) * (w + 24) / 6, baseY - 150],
+      [x - 8 + (i + 1) * (w + 20) / 6, baseY - 112], [x - 8 + i * (w + 20) / 6, baseY - 112]], i % 2 ? c1 : c2);
+  }
+  line(g, x - 14, baseY - 151, x + w + 14, baseY - 151, 3, 0x4b3525);
+  // бутылки и банки
+  for (let i = 0; i < 4; i++) {
+    const bx = x + 22 + i * (w - 44) / 3;
+    rect(g, bx - 4, baseY - 66, 8, 22, 0x2f3c34);
+    rect(g, bx - 3, baseY - 60, 6, 14, i % 2 ? 0xb9853f : 0x7d9a55, 0.9);
+    rect(g, bx - 2, baseY - 69, 4, 4, 0x6b4b2d);
+  }
+  // вывеска
+  rect(g, x + w / 2 - 42, baseY - 142, 84, 20, 0x2b1d12);
+  rect(g, x + w / 2 - 40, baseY - 140, 80, 16, 0x4d3721);
+  for (let i = 0; i < 6; i++) circle(g, x + w / 2 - 32 + i * 13, baseY - 132, 1.8, 0xd3ab68, 0.6);
+}
+
+function drawFestivalStage(g, x, baseY, w) {
+  // сцена
+  rect(g, x, baseY - 24, w, 24, 0x3e2b1d);
+  rect(g, x, baseY - 24, w, 5, 0x66472d);
+  for (let i = 0; i < 8; i++) line(g, x + 10 + i * (w - 20) / 7, baseY - 20, x + 10 + i * (w - 20) / 7, baseY, 2, 0x2a1d13, 0.6);
+  // задник
+  rect(g, x + 10, baseY - 150, w - 20, 126, 0x3f3030);
+  for (let i = 0; i < 5; i++) {
+    poly(g, [[x + 10 + i * (w - 20) / 5, baseY - 150], [x + 10 + (i + 1) * (w - 20) / 5, baseY - 150],
+      [x + 10 + (i + 1) * (w - 20) / 5, baseY - 24], [x + 10 + i * (w - 20) / 5, baseY - 24]], i % 2 ? 0x503b36 : 0x44322e);
+  }
+  drawBanner(g, x + w * 0.25, baseY - 148, 36, 76, 0x8a4d3e);
+  drawBanner(g, x + w * 0.75 - 36, baseY - 148, 36, 76, 0x4d6275);
+  // гирлянда
+  for (let i = 0; i < 14; i++) {
+    const lx = x + 8 + i * (w - 16) / 13;
+    const ly = baseY - 170 + Math.sin(i / 13 * Math.PI) * 18;
+    circle(g, lx, ly, 2.4, 0xffcf72, 0.9);
+  }
+  // ящики и бочки
+  drawCrates(g, x + 26, baseY - 24, 1, 30);
+  drawBarrel(g, x + w - 40, baseY - 24, 26, 34);
+}
+
+function drawBanner(g, x, y, w, h, color) {
+  poly(g, [[x, y], [x + w, y], [x + w, y + h], [x + w / 2, y + h - 10], [x, y + h]], color);
+  line(g, x, y, x + w, y, 3, 0x2a1d15);
+  circle(g, x + w / 2, y + 22, 8, 0xe0c087, 0.3);
+  line(g, x + w / 2, y + 14, x + w / 2, y + 30, 1.5, 0xe0c087, 0.5);
+  line(g, x + w / 2 - 7, y + 22, x + w / 2 + 7, y + 22, 1.5, 0xe0c087, 0.5);
+}
+
+function drawMillBridge(g, x1, x2, y) {
+  // мостик через ручей
+  line(g, x1, y, x1, y - 50, 4, 0x3a2a1d);
+  line(g, x2, y, x2, y - 50, 4, 0x3a2a1d);
+  for (let i = 0; i < Math.floor((x2 - x1) / 18); i++) {
+    const xx = x1 + i * 18;
+    rect(g, xx, y - 8, 16, 5, i % 2 ? 0x4f3925 : 0x5d442b);
+  }
+  line(g, x1, y - 30, x2, y - 30, 2, 0x3b2b1d);
 }
 
 /* ============================================================
@@ -1201,6 +1590,92 @@ function portraitTexture(kind) {
       ctx.beginPath(); ctx.moveTo(35, -62); ctx.quadraticCurveTo(44, -48, 38, -40); ctx.stroke();
       ctx.strokeStyle = 'rgba(255,190,120,.3)'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(12, -50, 34, -0.6, 0.6); ctx.stroke();
+    }
+
+    if (kind === 'pavel') {
+      // Пал Палыч, старый мельник
+      ctx.fillStyle = '#3f4b45';
+      ctx.beginPath(); ctx.ellipse(0, 100, 94, 66, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#c9966e'; ctx.beginPath(); ctx.ellipse(0, -46, 44, 47, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(150,96,66,.28)'; ctx.beginPath(); ctx.ellipse(18, -45, 22, 40, 0, 0, TAU); ctx.fill();
+      // глаза
+      ctx.fillStyle = '#22221f';
+      ctx.beginPath(); ctx.ellipse(-17, -52, 3.2, 3.8, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(17, -52, 3.2, 3.8, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(70,55,42,.8)'; ctx.lineWidth = 2.8;
+      ctx.beginPath(); ctx.moveTo(-29, -58); ctx.quadraticCurveTo(-21, -62, -10, -59); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(10, -59); ctx.quadraticCurveTo(21, -62, 29, -58); ctx.stroke();
+      // нос
+      ctx.fillStyle = '#b97b58';
+      ctx.beginPath(); ctx.moveTo(0, -48); ctx.quadraticCurveTo(7, -38, 0, -34); ctx.quadraticCurveTo(-6, -38, 0, -48); ctx.fill();
+      // борода
+      ctx.fillStyle = '#8d8b7e';
+      ctx.beginPath(); ctx.moveTo(-38, -27); ctx.quadraticCurveTo(-42, 28, 0, 40);
+      ctx.quadraticCurveTo(42, 28, 38, -27); ctx.quadraticCurveTo(25, -12, 13, -17);
+      ctx.quadraticCurveTo(0, -7, -13, -17); ctx.quadraticCurveTo(-25, -12, -38, -27); ctx.fill();
+      ctx.fillStyle = 'rgba(170,168,154,.55)';
+      ctx.beginPath(); ctx.moveTo(-18, -4); ctx.quadraticCurveTo(-20, 20, 0, 30); ctx.quadraticCurveTo(20, 20, 18, -4); ctx.fill();
+      ctx.strokeStyle = '#5f5c52'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(-18, -25); ctx.quadraticCurveTo(0, -18, 18, -26); ctx.stroke();
+      // кепка
+      ctx.fillStyle = '#3c3f3a';
+      ctx.beginPath(); ctx.ellipse(0, -88, 52, 27, 0, Math.PI, TAU); ctx.fill();
+      ctx.fillRect(-52, -90, 104, 12);
+      ctx.fillStyle = '#2f322e'; ctx.beginPath(); ctx.ellipse(8, -82, 42, 9, 0.04, 0, TAU); ctx.fill();
+      // морщины
+      ctx.strokeStyle = 'rgba(110,70,48,.4)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-34, -66); ctx.quadraticCurveTo(-28, -69, -21, -66); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(21, -66); ctx.quadraticCurveTo(28, -69, 34, -66); ctx.stroke();
+      // шарф
+      ctx.fillStyle = '#6b4e3a';
+      ctx.fillRect(-44, 18, 88, 22);
+      ctx.strokeStyle = 'rgba(255,190,120,.3)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(12, -50, 40, -0.6, 0.7); ctx.stroke();
+    }
+
+    if (kind === 'klava') {
+      // Клава, торговка с площади
+      ctx.fillStyle = '#5b483f';
+      ctx.beginPath(); ctx.ellipse(0, 104, 96, 68, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#d3a078'; ctx.beginPath(); ctx.ellipse(0, -46, 43, 46, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(170,105,74,.25)'; ctx.beginPath(); ctx.ellipse(17, -46, 21, 38, 0, 0, TAU); ctx.fill();
+      // глаза
+      ctx.fillStyle = '#26221f';
+      ctx.beginPath(); ctx.ellipse(-16, -51, 3.2, 3.8, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(16, -51, 3.2, 3.8, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(100,60,40,.5)'; ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(-27, -57); ctx.quadraticCurveTo(-20, -60, -10, -57); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(10, -57); ctx.quadraticCurveTo(20, -60, 27, -57); ctx.stroke();
+      // румянец
+      ctx.fillStyle = 'rgba(196,104,82,.28)';
+      ctx.beginPath(); ctx.ellipse(-27, -33, 10, 6, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(27, -33, 10, 6, 0, 0, TAU); ctx.fill();
+      // нос
+      ctx.fillStyle = '#b97b58';
+      ctx.beginPath(); ctx.moveTo(0, -46); ctx.quadraticCurveTo(6, -37, -1, -34); ctx.quadraticCurveTo(-7, -37, 0, -46); ctx.fill();
+      // улыбка
+      ctx.strokeStyle = '#8a5540'; ctx.lineWidth = 2.8;
+      ctx.beginPath(); ctx.moveTo(-12, -25); ctx.quadraticCurveTo(0, -16, 13, -26); ctx.stroke();
+      // серьги
+      ctx.strokeStyle = '#d6b36a'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(-38, -35, 6, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.arc(38, -35, 6, 0, TAU); ctx.stroke();
+      // платок
+      ctx.fillStyle = '#7c3f46';
+      ctx.beginPath();
+      ctx.moveTo(-49, -76); ctx.quadraticCurveTo(0, -126, 49, -76);
+      ctx.quadraticCurveTo(53, -48, 40, -36); ctx.quadraticCurveTo(30, -68, 0, -74);
+      ctx.quadraticCurveTo(-30, -68, -40, -36); ctx.quadraticCurveTo(-53, -48, -49, -76); ctx.fill();
+      ctx.fillStyle = '#96525a';
+      ctx.beginPath(); ctx.moveTo(-38, -74); ctx.quadraticCurveTo(0, -108, 38, -74);
+      ctx.quadraticCurveTo(18, -82, 0, -84); ctx.quadraticCurveTo(-18, -82, -38, -74); ctx.fill();
+      // бусы
+      ctx.fillStyle = '#d8b06a';
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath(); ctx.arc(-18 + i * 9, 22 + Math.abs(i - 2) * 3, 3, 0, TAU); ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(255,190,120,.32)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(14, -50, 39, -0.6, 0.7); ctx.stroke();
     }
 
     if (kind === 'narrator') {

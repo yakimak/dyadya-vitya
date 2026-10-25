@@ -26,6 +26,15 @@ class Player {
     this.blink = 0;
     this.locked = false;
     this.landVy = 0;
+    this.speed = 258;
+    this.maxHealth = 3;
+    this.health = 3;
+    this.invuln = 0;
+    this.hurtFlash = 0;
+    this.attackTimer = 0;
+    this.attackCooldown = 0;
+    this.attackStarted = false;
+    this.knockback = 0;
 
     const art = buildVitya();
     this.art = art;
@@ -40,6 +49,60 @@ class Player {
     this.container.addChildAt(this.aura, 1);
 
     this.totalTime = 0;
+
+    // метла — отцовская, для обороны и от ворон
+    this.broom = new PIXI.Container();
+    const bg = new PIXI.Graphics();
+    line(bg, 0, 0, 30, -26, 4, 0x6a4b2f);
+    line(bg, 30, -26, 40, -38, 3, 0x7d5a37);
+    // щетина
+    bg.lineStyle(1.6, 0xb59a63, 0.95);
+    for (let i = 0; i < 7; i++) {
+      bg.moveTo(39, -37);
+      bg.lineTo(47 + (i % 3) * 4, -46 - (i % 4) * 4);
+    }
+    bg.beginFill(0x8b6d43, 0.9);
+    bg.drawEllipse(43, -40, 15, 8);
+    bg.endFill();
+    this.broom.addChild(bg);
+    this.broom.x = 12; this.broom.y = -17;
+    this.broom.rotation = -1.4;
+    this.broom.visible = false;
+    this.container.addChild(this.broom);
+  }
+
+  setUpgrades(upgrades) {
+    this.speed = upgrades && upgrades.boots ? 289 : 258;
+    this.maxHealth = upgrades && upgrades.lamp ? 4 : 3;
+    if (this.health > this.maxHealth) this.health = this.maxHealth;
+  }
+
+  heal(n) {
+    this.health = Math.min(this.maxHealth, this.health + n);
+    if (this.game.progress) this.game.progress.health = this.health;
+  }
+
+  takeDamage(n, fromX) {
+    if (this.invuln > 0 || this.game.respawning || this.game.state !== 'play') return false;
+    this.health -= n;
+    if (this.game.progress) this.game.progress.health = this.health;
+    this.invuln = 1.15;
+    this.hurtFlash = 0.5;
+    this.vx = (this.cx < (fromX || this.cx) ? -1 : 1) * 220;
+    this.vy = -260;
+    this.game.audio.sfx('hurt');
+    this.game.shake(4, 0.25);
+    this.game.ui.updateHUD();
+    if (this.health <= 0) this.game.onPlayerDown();
+    return true;
+  }
+
+  startAttack() {
+    if (this.attackCooldown > 0 || this.locked || this.game.isPlayerLocked()) return;
+    this.attackCooldown = 0.42;
+    this.attackTimer = 0.3;
+    this.attackStarted = true;
+    this.game.audio.sfx('swing');
   }
 
   get cx() { return this.x + this.w / 2; }
@@ -64,13 +127,20 @@ class Player {
     const locked = this.locked || this.game.isPlayerLocked();
     const wasGrounded = this.onGround;
 
+    this.invuln = Math.max(0, this.invuln - dt);
+    this.attackCooldown = Math.max(0, this.attackCooldown - dt);
+    this.attackTimer = Math.max(0, this.attackTimer - dt);
+    this.hurtFlash = Math.max(0, this.hurtFlash - dt);
+
+    if (!locked && input.attackPressed()) this.startAttack();
+
     let axis = 0;
     if (!locked) {
       if (input.left()) axis -= 1;
       if (input.right()) axis += 1;
     }
 
-    const maxSpeed = 258;
+    const maxSpeed = this.speed;
     const accel = this.onGround ? 2500 : 1750;
     const friction = this.onGround ? 3200 : 900;
     if (axis !== 0) {
@@ -107,6 +177,7 @@ class Player {
     this.x += this.vx * dt;
     for (let i = 0; i < solids.length; i++) {
       const s = solids[i];
+      if (s.disabled) continue;
       if (!this.overlaps(s)) continue;
       if (this.vx > 0) this.x = s.x - this.w;
       else if (this.vx < 0) this.x = s.x + s.w;
@@ -120,6 +191,7 @@ class Player {
     this.riding = null;
     for (let i = 0; i < solids.length; i++) {
       const s = solids[i];
+      if (s.disabled) continue;
       if (!this.overlaps(s)) continue;
       if (this.vy >= 0) {
         this.y = s.y - this.h;
@@ -197,6 +269,20 @@ class Player {
       a.body.rotation = U.damp(a.body.rotation, 0, 12, dt);
     }
 
+    // метла
+    if (this.attackTimer > 0) {
+      const k = 1 - this.attackTimer / 0.3;
+      this.broom.visible = true;
+      this.broom.rotation = -1.5 + U.easeOutCubic(k) * 2.5;
+      this.broom.alpha = 0.75 + Math.sin(k * Math.PI) * 0.25;
+    } else {
+      this.broom.visible = false;
+    }
+
+    // мигание от урона
+    if (this.invuln > 0) this.container.alpha = Math.sin(t * 42) > 0 ? 0.62 : 1;
+    else this.container.alpha = 1;
+
     a.head.rotation = moving ? Math.sin(this.phase) * 0.025 : Math.sin(t * 1.3) * 0.015;
     a.head.y = -58 + (moving ? Math.abs(Math.sin(this.phase)) * -0.8 : 0);
 
@@ -252,7 +338,7 @@ class NPC {
     this.walkSpeed = 60;
     this.fade = 1;
 
-    const builders = { vitya: buildVitya, zina: buildZina, stas: buildStas, grisha: buildGrisha, boris: buildBorisych };
+    const builders = { vitya: buildVitya, zina: buildZina, stas: buildStas, grisha: buildGrisha, boris: buildBorisych, pavel: buildPavel, klava: buildKlava };
     const built = (builders[this.kind] || buildZina)();
     this.art = built;
     this.container = built.root;
@@ -384,8 +470,10 @@ class CheckpointLantern {
       s.vx = Math.cos(ang) * d * 0.3;
       s.life = 1.5;
     }
-    if (!silent) this.world.game.audio.sfx('checkpoint');
-    this.world.game.ui.toast('Фонарь зажжён', 'контрольная точка', 0xffcf8a);
+    if (!silent) {
+      this.world.game.audio.sfx('checkpoint');
+      this.world.game.ui.toast('Фонарь зажжён', 'контрольная точка', 0xffcf8a);
+    }
     return true;
   }
 
@@ -426,8 +514,12 @@ class Collectible {
     this.container.x = x;
     this.container.y = y;
 
-    const colors = { honey: 0xffb35c, hop: 0xc0cf82, water: 0x9cdcea };
-    const color = colors[type];
+    const colors = {
+      honey: 0xffb35c, hop: 0xc0cf82, water: 0x9cdcea,
+      berries: 0xd47b8b, mushroom: 0xe0c9a0, herb: 0x9bbb72,
+      yeast: 0xe0c27a, flashlight: 0xaee8f2, lure: 0xffcf72,
+    };
+    const color = colors[type] || 0xffca7a;
 
     this.halo = softGlow(color, 150, 0.35);
     this.container.addChild(this.halo);
@@ -437,16 +529,22 @@ class Collectible {
 
     this.art = new PIXI.Container();
     const g = new PIXI.Graphics();
-    if (type === 'honey') {
-      drawHoneyIcon(g, 0, 0, 1.55);
-      this.art.addChild(g);
-    } else if (type === 'water') {
-      drawWaterIcon(g, 0, 0, 1.6);
-      this.art.addChild(g);
+    if (type === 'flashlight') {
+      rect(g, -6, -12, 12, 24, 0x394348);
+      rect(g, -4, -9, 8, 5, 0xb9d9dc, 0.8);
+      circle(g, 0, 14, 5, 0xffd48a, 0.5);
+      circle(g, 0, 2, 4, 0xfff2c4, 0.9);
+    } else if (type === 'lure') {
+      circle(g, 0, 0, 8, 0xd8a74c, 0.95);
+      circle(g, -2, -2, 3, 0xffe0a0, 0.7);
+      line(g, 0, -8, 0, -20, 1.5, 0xa9b9b5);
+      line(g, -5, -20, 5, -20, 1.2, 0xa9b9b5);
+      line(g, 8, 0, 16, 7, 1.5, 0x8f9c98);
     } else {
-      drawHop(g, 0, 0, 1.45);
-      this.art.addChild(g);
+      const small = type === 'berries' || type === 'mushroom' || type === 'herb' || type === 'yeast';
+      drawItemIcon(g, type, 0, 0, small ? 1.08 : (type === 'honey' || type === 'water' ? 1.42 : 1.45));
     }
+    this.art.addChild(g);
     this.container.addChild(this.art);
 
     this.sparkles = [];
@@ -462,12 +560,16 @@ class Collectible {
   }
 
   drawRing() {
-    const colors = { honey: 0xffca7a, hop: 0xd7e0a0, water: 0xaee8f2 };
+    const colors = {
+      honey: 0xffca7a, hop: 0xd7e0a0, water: 0xaee8f2,
+      berries: 0xe2a4b0, mushroom: 0xe6d8bd, herb: 0xc1d7a0,
+      yeast: 0xf0dca8, flashlight: 0xaee8f2, lure: 0xffd88a,
+    };
     const g = this.ring;
     g.clear();
-    g.lineStyle(1.2, colors[this.type], 0.35);
+    g.lineStyle(1.2, colors[this.type] || 0xffca7a, 0.35);
     g.drawEllipse(0, 14, 22, 5);
-    g.lineStyle(1, colors[this.type], 0.14);
+    g.lineStyle(1, colors[this.type] || 0xffca7a, 0.14);
     g.drawEllipse(0, 14, 32, 8);
   }
 
@@ -499,3 +601,236 @@ class Collectible {
     return true;
   }
 }
+
+/* ============================================================
+   ВРАГИ: сборщики Борисыча и вороны-воришки
+   ============================================================ */
+
+class Enemy {
+  constructor(game, kind, x, y, opts) {
+    this.game = game;
+    this.kind = kind;
+    this.x = x;
+    this.y = y === undefined ? 600 : y;
+    this.opts = opts || {};
+    this.maxHp = kind === 'thug' ? 2 : 1;
+    this.hp = this.maxHp;
+    this.speed = kind === 'thug' ? (48 + Math.random() * 16) : 120;
+    this.state = kind === 'crow' ? 'perch' : 'walk';
+    this.baseY = this.y;
+    this.phase = Math.random() * TAU;
+    this.dir = kind === 'thug' ? -1 : 1;
+    this.stun = 0;
+    this.attackCd = 0;
+    this.dead = false;
+    this.gone = false;
+    this.fade = 1;
+    this.stolen = false;
+    this.stealTimer = 0;
+    this.active = kind === 'thug';
+    this.targetX = opts && opts.targetX !== undefined ? opts.targetX : 5520;
+    this.flyTimer = 0;
+
+    this.container = new PIXI.Container();
+    this.container.x = x;
+    this.container.y = this.y;
+    this.art = new PIXI.Container();
+    this.container.addChild(this.art);
+    if (kind === 'thug') this.buildThug();
+    else this.buildCrow();
+
+    this.hpBar = new PIXI.Graphics();
+    this.hpBar.y = -(kind === 'thug' ? 62 : 44);
+    this.container.addChild(this.hpBar);
+    this.drawHp();
+  }
+
+  buildThug() {
+    const g = new PIXI.Graphics();
+    const body = new PIXI.Graphics();
+    const legL = new PIXI.Graphics();
+    const legR = new PIXI.Graphics();
+    // ноги
+    rect(legL, -8, -22, 6, 22, 0x24262b);
+    rect(legL, -10, -3, 10, 4, 0x141519);
+    rect(legR, 3, -22, 6, 22, 0x2a2c31);
+    rect(legR, 2, -3, 10, 4, 0x141519);
+    // пальто
+    poly(body, [[-13, -51], [-15, -25], [-11, -17], [12, -17], [15, -25], [13, -51], [7, -55], [-7, -55]], 0x30343d);
+    poly(body, [[-13, -50], [-6, -53], [-5, -19], [-12, -20]], 0x3b404a);
+    poly(body, [[13, -50], [6, -53], [5, -19], [12, -20]], 0x242830);
+    // шарф
+    poly(body, [[-10, -56], [10, -56], [9, -50], [-9, -50]], 0x8e3f36);
+    // голова
+    circle(body, 0, -63, 8.5, 0xc99670);
+    circle(body, 3, -63, 3.5, 0xb07a56, 0.4);
+    // глаза
+    circle(body, -3, -64, 1.2, 0x1d1e22);
+    circle(body, 3, -64, 1.2, 0x1d1e22);
+    // злая ухмылка
+    line(body, -3, -58, 3, -58, 1.3, 0x6b3f35);
+    // кепка
+    ellipse(body, 0, -70, 11, 4, 0x2b2d31);
+    poly(body, [[-8, -70], [-6, -76], [6, -76], [9, -70]], 0x35383c);
+    rect(body, 1, -71, 11, 3, 0x282a2f);
+    // мешок
+    poly(body, [[9, -42], [17, -46], [22, -34], [13, -28]], 0x65563e);
+    line(body, 12, -48, 17, -42, 1.5, 0x3f3425);
+    // руки
+    rect(body, -17, -47, 5, 19, 0x2b2f37);
+    rect(body, 12, -47, 5, 19, 0x30343d);
+    circle(body, -14.5, -28, 3.2, 0xc99670);
+    circle(body, 14.5, -28, 3.2, 0xc99670);
+    this.art.addChild(legL, legR, body);
+    this.legL = legL; this.legR = legR; this.body = body;
+    // тень
+    const sh = new PIXI.Graphics();
+    ellipse(sh, 0, 0, 19, 6, 0x04070b, 0.4);
+    this.container.addChildAt(sh, 0);
+  }
+
+  buildCrow() {
+    const g = new PIXI.Graphics();
+    this.wingL = new PIXI.Graphics();
+    this.wingR = new PIXI.Graphics();
+    g.beginFill(0x0b0e13);
+    g.drawEllipse(0, 0, 10, 6); g.endFill();
+    circle(g, 9, -4, 5, 0x0b0e13);
+    poly(g, [[13, -3], [20, -1], [13, 2]], 0x2e2922);
+    circle(g, 10, -5, 1.2, 0xd8b36a, 0.9);
+    this.wingL.beginFill(0x090c11);
+    this.wingL.drawEllipse(-8, -4, 14, 5);
+    this.wingL.endFill();
+    this.wingR.beginFill(0x090c11);
+    this.wingR.drawEllipse(8, -28, 6, 13);
+    this.wingR.endFill();
+    this.art.addChild(this.wingL, g, this.wingR);
+    this.bodyG = g;
+    const sh = new PIXI.Graphics();
+    ellipse(sh, 0, 0, 12, 3, 0x04070b, 0.18);
+    this.container.addChildAt(sh, 0);
+  }
+
+  drawHp() {
+    const g = this.hpBar;
+    g.clear();
+    if (this.kind !== 'thug' || this.dead) return;
+    for (let i = 0; i < this.maxHp; i++) {
+      g.beginFill(i < this.hp ? 0xc85b4f : 0x373b42, 0.9);
+      g.drawRoundedRect(-13 + i * 14, 0, 10, 4, 2);
+      g.endFill();
+    }
+  }
+
+  update(dt, t) {
+    if (this.gone) return;
+    if (this.dead) {
+      this.fade -= dt * 2.5;
+      this.container.alpha = Math.max(0, this.fade);
+      if (this.fade <= 0) this.gone = true;
+      return;
+    }
+    this.phase += dt;
+    this.stun = Math.max(0, this.stun - dt);
+    this.attackCd = Math.max(0, this.attackCd - dt);
+    const p = this.game.player;
+
+    if (this.kind === 'crow') {
+      if (this.state === 'perch') {
+        this.container.y = this.baseY + Math.sin(t * 2 + this.phase) * 2;
+        if (p && Math.abs(p.cx - this.x) < 165) {
+          this.state = 'swoop';
+          this.active = true;
+          this.game.audio.sfx('jump');
+        }
+      } else if (this.state === 'swoop') {
+        if (!p) return;
+        const dx = p.cx - this.container.x;
+        const dy = (p.cy - 20) - this.container.y;
+        const d = Math.hypot(dx, dy) || 1;
+        this.container.x += dx / d * 140 * dt;
+        this.container.y += dy / d * 120 * dt;
+        this.wingL.rotation = Math.sin(t * 18) * 0.9;
+        this.wingR.rotation = -Math.sin(t * 18) * 0.9;
+        if (Math.hypot(dx, dy) < 30 && !this.stolen) {
+          this.stolen = true;
+          this.game.onCrowSteal(this);
+          this.state = 'flee';
+          this.game.audio.sfx('squeak');
+          this.game.world.spawnBurst(this.container.x, this.container.y, 0x9fb6c4, 10);
+        }
+      } else if (this.state === 'flee') {
+        this.container.x += 90 * dt;
+        this.container.y -= 65 * dt;
+        this.fade -= dt * 0.7;
+        this.container.alpha = Math.max(0, this.fade);
+        this.wingL.rotation = Math.sin(t * 16) * 0.7;
+        this.wingR.rotation = -Math.sin(t * 16) * 0.7;
+        if (this.fade <= 0) this.gone = true;
+      }
+      return;
+    }
+
+    // сборщик
+    if (!this.active) return;
+    if (this.stealTimer > 0) {
+      this.stealTimer -= dt;
+      this.container.x += this.dir * 110 * dt;
+      this.container.alpha = Math.max(0, this.stealTimer / 1.0);
+      this.container.y = this.baseY;
+      if (this.stealTimer <= 0) this.gone = true;
+      return;
+    }
+
+    const target = this.targetX;
+    const dToTarget = target - this.container.x;
+    this.dir = dToTarget > 0 ? 1 : -1;
+    this.container.scale.x = this.dir;
+    const playerNear = p && Math.abs(p.cx - this.container.x) < 62 && Math.abs(p.feet - this.baseY) < 70;
+    if (playerNear && this.stun <= 0) {
+      if (this.attackCd <= 0) {
+        this.attackCd = 1.35;
+        p.takeDamage(1, this.container.x);
+        this.game.audio.sfx('thud');
+      }
+      this.container.x += Math.sin(t * 12) * 0.4;
+    } else if (this.stun > 0) {
+      this.container.x += this.dir * 20 * dt;
+    } else {
+      const step = this.speed * dt;
+      if (Math.abs(dToTarget) > 18) {
+        this.container.x += Math.sign(dToTarget) * Math.min(step, Math.abs(dToTarget));
+        this.legL.rotation = Math.sin(t * 10 + this.phase) * 0.5;
+        this.legR.rotation = -Math.sin(t * 10 + this.phase) * 0.5;
+        this.body.y = Math.abs(Math.sin(t * 10 + this.phase)) * -1.5;
+      } else {
+        // добрался до чана — крадёт и убегает
+        this.game.onThugSteal(this);
+        this.stealTimer = 1.1;
+        this.dir = -this.dir;
+      }
+    }
+    this.container.y = this.baseY;
+  }
+
+  hit(dmg, dir) {
+    if (this.dead || this.gone) return false;
+    this.hp -= dmg;
+    this.stun = 0.5;
+    this.dir = -dir;
+    this.container.x += dir * 22;
+    this.game.world.spawnBurst(this.container.x, this.container.y - 35, 0xffd58a, 8);
+    this.game.audio.sfx('hit');
+    // вспышка
+    this.container.alpha = 0.5;
+    setTimeout(() => { if (this.container) this.container.alpha = 1; }, 90);
+    this.drawHp();
+    if (this.hp <= 0) {
+      this.dead = true;
+      this.active = false;
+      this.game.onEnemyDefeated(this);
+    }
+    return true;
+  }
+}
+

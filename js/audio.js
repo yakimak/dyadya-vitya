@@ -394,6 +394,34 @@ class AudioEngine {
         this.tone(220, 0.18, 0.055, 'sine', 420);
         this.noise(0.1, 0.02, 1600, 'highpass');
         break;
+      case 'swing':
+        this.noise(0.16, 0.045, 900, 'highpass');
+        this.tone(180, 0.1, 0.025, 'triangle', 90);
+        break;
+      case 'hurt':
+        this.tone(130, 0.22, 0.07, 'sawtooth', 70);
+        this.noise(0.12, 0.03, 500);
+        break;
+      case 'hit':
+        this.noise(0.1, 0.06, 1300, 'highpass');
+        this.tone(210, 0.08, 0.045, 'square', 140);
+        break;
+      case 'thud':
+        this.tone(80, 0.18, 0.08, 'sine', 48);
+        this.noise(0.1, 0.04, 300);
+        break;
+      case 'squeak':
+        this.tone(900, 0.1, 0.025, 'square', 1300);
+        break;
+      case 'coin':
+        this.tone(880, 0.16, 0.04, 'sine');
+        this.tone(1174.66, 0.3, 0.035, 'sine', null, this.ctx.currentTime + 0.06);
+        break;
+      case 'buy':
+        this.tone(392, 0.4, 0.04, 'sine');
+        this.tone(523.25, 0.5, 0.035, 'sine', null, this.ctx.currentTime + 0.08);
+        this.tone(659.25, 0.6, 0.03, 'sine', null, this.ctx.currentTime + 0.16);
+        break;
       case 'land':
         this.tone(96, 0.16, 0.075, 'sine', 54);
         this.noise(0.12, 0.03, 420);
