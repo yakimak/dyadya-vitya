@@ -185,7 +185,11 @@ class AudioEngine {
     if (this.ctx) this.nextBar = Math.max(this.nextBar, this.ctx.currentTime + 0.2);
     if (mode === 'ending') {
       this.fadeAmbience('night', 0, 3.5);
+      this.fadeAmbience('crickets', 0, 3.5);
       this.playAmbience('park', 0.34, 4);
+    } else if (mode === 'festival') {
+      this.fadeAmbience('park', 0, 2.5);
+      this.playAmbience('crickets', 0.12, 2.5);
     } else if (mode === 'night') {
       this.fadeAmbience('park', 0, 2.5);
       this.playAmbience('night', 0.36, 2.5);
@@ -205,7 +209,7 @@ class AudioEngine {
   }
 
   scheduleBar(index, when) {
-    const ending = this.mode === 'ending';
+    const ending = this.mode === 'ending' || this.mode === 'festival';
     const prog = ending ? this.endProg : this.nightProg;
     const mel = ending ? this.endMelody : this.nightMelody;
     const ch = prog[index % prog.length];

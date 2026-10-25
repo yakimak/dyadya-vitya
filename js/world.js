@@ -7,7 +7,7 @@
 class World {
   constructor(game) {
     this.game = game;
-    this.width = 9200;
+    this.width = 10700;
     this.day = 1;
     this.camera = { x: 0, y: 0, shakeX: 0, shakeY: 0 };
     this.time = 0;
@@ -16,6 +16,11 @@ class World {
     this.stations = [];
     this.gardenBeds = [];
     this.festivalLights = [];
+    this.festivalLanterns = [];
+    this.crowdFigures = [];
+    this.festivalGroup = null;
+    this.festivalActive = false;
+    this.fireworkTimer = 5;
 
     this.root = new PIXI.Container();
 
@@ -43,7 +48,9 @@ class World {
     this.waterLayer = new PIXI.Container();
     this.waterFx = new PIXI.Container();
     this.scenery = new PIXI.Container();
+    this.platformLayer = new PIXI.Container();
     this.raftsLayer = new PIXI.Container();
+    this.crowdLayer = new PIXI.Container();
     this.entityLayer = new PIXI.Container();
     this.foreground = new PIXI.Container();
     this.lights = new PIXI.Container();
@@ -54,7 +61,9 @@ class World {
     this.worldRoot.addChild(this.waterLayer);
     this.worldRoot.addChild(this.waterFx);
     this.worldRoot.addChild(this.scenery);
+    this.worldRoot.addChild(this.platformLayer);
     this.worldRoot.addChild(this.raftsLayer);
+    this.worldRoot.addChild(this.crowdLayer);
     this.worldRoot.addChild(this.entityLayer);
     this.worldRoot.addChild(this.foreground);
     this.worldRoot.addChild(this.lights);
@@ -378,6 +387,7 @@ class World {
       { x: 4200, w: 1650, top: 600, seed: 99 },
       { x: 5850, w: 1550, top: 600, seed: 121 },
       { x: 7400, w: 1820, top: 600, seed: 154 },
+      { x: 9220, w: 1480, top: 600, seed: 188 },
     ];
     const rng = mulberry32(31337);
 
@@ -535,12 +545,10 @@ class World {
   buildPlatforms() {
     const defs = [
       { x: 606, y: 555, w: 62, h: 45, kind: 'crate' },
-      { x: 840, y: 486, w: 95, h: 22, kind: 'wood' },
       { x: 1010, y: 535, w: 92, h: 22, kind: 'wood' },
       { x: 1130, y: 505, w: 150, h: 22, kind: 'wood' },
       { x: 1340, y: 445, w: 150, h: 22, kind: 'wood' },
       { x: 1560, y: 500, w: 172, h: 22, kind: 'wood' },
-      { x: 1770, y: 432, w: 120, h: 22, kind: 'wood' },
       { x: 2380, y: 640, w: 160, h: 30, kind: 'island' },
       { x: 3000, y: 520, w: 150, h: 22, kind: 'wood' },
       { x: 3200, y: 455, w: 150, h: 22, kind: 'wood' },
@@ -548,18 +556,26 @@ class World {
       { x: 3650, y: 330, w: 150, h: 22, kind: 'wood' },
       { x: 3890, y: 420, w: 150, h: 22, kind: 'wood' },
       { x: 4070, y: 500, w: 132, h: 22, kind: 'wood' },
-      // лес и мельница
+      // лес и мельница — только платформы с добычей или проходом
       { x: 5920, y: 520, w: 140, h: 22, kind: 'wood' },
       { x: 6140, y: 452, w: 132, h: 22, kind: 'wood' },
       { x: 6330, y: 530, w: 120, h: 22, kind: 'wood' },
       { x: 6520, y: 438, w: 144, h: 22, kind: 'wood' },
       { x: 6740, y: 512, w: 150, h: 22, kind: 'wood' },
-      { x: 7010, y: 430, w: 145, h: 22, kind: 'wood' },
-      { x: 7200, y: 520, w: 135, h: 22, kind: 'wood' },
-      // площадь
-      { x: 7560, y: 522, w: 150, h: 22, kind: 'wood' },
-      { x: 7830, y: 462, w: 150, h: 22, kind: 'wood' },
-      { x: 8100, y: 525, w: 140, h: 22, kind: 'wood' },
+      { x: 7210, y: 470, w: 145, h: 22, kind: 'wood' },
+      // площадь: площадки для фестивальных фонарей
+      { x: 7940, y: 500, w: 130, h: 22, kind: 'wood' },
+      { x: 8190, y: 445, w: 130, h: 22, kind: 'wood' },
+      { x: 8430, y: 500, w: 130, h: 22, kind: 'wood' },
+      { x: 8680, y: 445, w: 130, h: 22, kind: 'wood' },
+      // старая плотина: подъём к роднику
+      { x: 9380, y: 520, w: 130, h: 22, kind: 'wood' },
+      { x: 9570, y: 450, w: 120, h: 22, kind: 'wood' },
+      { x: 9760, y: 380, w: 130, h: 22, kind: 'wood' },
+      { x: 9950, y: 450, w: 120, h: 22, kind: 'wood' },
+      { x: 10140, y: 520, w: 130, h: 22, kind: 'wood' },
+      { x: 10330, y: 450, w: 120, h: 22, kind: 'wood' },
+      { x: 10520, y: 380, w: 120, h: 22, kind: 'wood' },
     ];
 
     this.platforms = [];
@@ -567,7 +583,7 @@ class World {
       this.platforms.push(p);
       const g = new PIXI.Graphics();
       this.drawPlatform(g, p);
-      this.terrainLayer.addChild(g);
+      this.platformLayer.addChild(g);
       this.staticSolids.push({ x: p.x, y: p.y, w: p.w, h: p.h, kind: p.kind });
     }
 
@@ -846,6 +862,73 @@ class World {
     drawSign(g, 7410, 600, 190, 45);
     this.addWorldText('ТИХИЙ БЕРЕГ', 7505, 533, 14, 0xe7c98f, FONT_DISPLAY, '600', 1.2);
     this.addWorldText('ФЕСТИВАЛЬ', 8520, 380, 18, 0xf1d296, FONT_DISPLAY, '600', 3);
+    this.addWorldText('→ СТАРАЯ ПЛОТИНА', 9050, 532, 13, 0xa9bdb5, FONT_UI, '600', 1.2);
+
+    // ---------- старая плотина ----------
+    for (let i = 0; i < 7; i++) {
+      const x = 9280 + i * 190;
+      if (i % 2 === 0) drawPine(g, x, 600, 230 + (i % 3) * 35, 500 + i, true);
+      else drawBirch(g, x, 600, 250 + (i % 3) * 35, 520 + i);
+    }
+    drawBush(g, 9300, 600, 1.1, 531);
+    drawBush(g, 9680, 600, 0.9, 532);
+    drawBush(g, 10580, 600, 1.0, 533);
+    drawStones(g, 9480, 600, 534, 4);
+    drawStones(g, 10080, 600, 535, 5);
+    drawSign(g, 9260, 600, 190, 46);
+    // руины плотины
+    const dam = new PIXI.Graphics();
+    rect(dam, 10040, 470, 430, 130, 0x303532);
+    rect(dam, 10040, 470, 430, 8, 0x525a51);
+    for (let i = 0; i < 9; i++) {
+      const bx = 10060 + i * 45;
+      rect(dam, bx, 500 + (i % 3) * 8, 33, 22 + (i % 2) * 12, i % 2 ? 0x3b423d : 0x454c45, 0.9);
+    }
+    // проём/арка
+    dam.beginFill(0x090e12, 0.85);
+    dam.drawRoundedRect(10180, 520, 90, 80, 36);
+    dam.endFill();
+    // мох и светлый камень
+    for (let i = 0; i < 12; i++) {
+      const mx = 10055 + (i * 37) % 390;
+      const my = 480 + (i % 4) * 24;
+      ellipse(dam, mx, my, 8 + (i % 3) * 4, 3, 0x566b53, 0.35);
+    }
+    g.addChild(dam);
+    // вода на старой плотине
+    const wf = new PIXI.Graphics();
+    wf.beginFill(0x6fa5b2, 0.24);
+    wf.drawRoundedRect(10208, 300, 48, 180, 8);
+    wf.endFill();
+    for (let i = 0; i < 9; i++) {
+      const sx = 10214 + (i * 11) % 34;
+      const sy = 312 + (i * 37) % 150;
+      line(wf, sx, sy, sx + 2, sy + 20 + (i % 3) * 12, 1.2, 0xd8f2f4, 0.18 + (i % 2) * 0.08);
+    }
+    wf.beginFill(0x8fc7d4, 0.22);
+    wf.drawRoundedRect(10212, 468, 38, 128, 6);
+    wf.endFill();
+    ellipse(wf, 10230, 598, 48, 8, 0xbce7eb, 0.22);
+    g.addChild(wf);
+    // вода, сбегающая по старой плотине
+    const fall = new PIXI.Sprite(linearGradientTexture(70, 390, [
+      [0, 'rgba(156,205,220,.0)'],
+      [0.25, 'rgba(156,205,220,.30)'],
+      [0.7, 'rgba(122,177,194,.18)'],
+      [1, 'rgba(90,130,150,.04)'],
+    ], true));
+    fall.x = 10210; fall.y = 310;
+    this.waterFx.addChild(fall);
+    this.waterfall = fall;
+    const fallMist = fogSprite(160, 240, 0.20);
+    fallMist.tint = 0x9ccdd8;
+    fallMist.x = 10245; fallMist.y = 540;
+    this.waterFx.addChild(fallMist);
+    this.damMist = fallMist;
+    drawStones(g, 10220, 600, 536, 5);
+    this.addWorldText('СТАРАЯ ПЛОТИНА', 9550, 520, 18, 0xc9d6cf, FONT_DISPLAY, '600', 2);
+    this.addWorldText('родник · туман · тишина', 9550, 540, 9, 0x91a7a4, FONT_UI, '400', 1);
+    this.addWorldText('→ ГОРОД', 10320, 515, 13, 0xa9bdb5, FONT_UI, '600', 1.5);
 
     // текст на вывесках
     this.addWorldText('МЕДВЕДЕВО', 635, 538, 19, 0xe7c98f, FONT_DISPLAY, '600', 2);
@@ -878,6 +961,7 @@ class World {
     const defs = [
       { x: 5790, day: 2, title: 'mill' },
       { x: 7310, day: 3, title: 'village' },
+      { x: 9180, day: 1, unlockKey: 'dam', title: 'dam' },
     ];
     for (const def of defs) {
       const closed = new PIXI.Graphics();
@@ -885,7 +969,7 @@ class World {
       const open = new PIXI.Graphics();
       drawGate(open, def.x, 600, true);
       this.scenery.addChild(closed, open);
-      const solid = { x: def.x - 70, y: 430, w: 140, h: 170, disabled: false, gate: true };
+      const solid = { x: def.x - 70, y: 330, w: 140, h: 270, disabled: false, gate: true };
       this.staticSolids.push(solid);
       this.gates.push({ def, closed, open, solid });
     }
@@ -893,8 +977,10 @@ class World {
   }
 
   updateGates() {
+    const unlocked = (this.game && this.game.progress && this.game.progress.unlocked) || {};
     for (const gate of this.gates) {
-      const closed = this.day < gate.def.day;
+      const openByKey = gate.def.unlockKey ? !!unlocked[gate.def.unlockKey] : true;
+      const closed = this.day < gate.def.day || !openByKey;
       gate.solid.disabled = !closed;
       gate.closed.visible = closed;
       gate.open.visible = !closed;
@@ -975,6 +1061,7 @@ class World {
   setDay(day) {
     this.day = day;
     this.updateGates();
+    this.updateFestivalVisibility();
     if (this.skySprite && this.skyVariants) {
       this.skySprite.texture = this.skyVariants[U.clamp(day - 1, 0, 2)];
     }
@@ -982,14 +1069,45 @@ class World {
     if (this.dayTint) {
       this.dayTint.alpha = day === 2 ? 0.045 : day === 3 ? 0.06 : 0;
     }
-    if (this.game && this.game.ui && this.game.ui.hud) this.game.ui.updateHUD();
-    if (this.game && this.game.world) this.updateGarden(this.game.progress.garden);
-    // Борисыч на третий день ждёт на площади
+    // На фестиваль приходят все. После фестиваля они остаются на площади.
+    const festivalSpots = { zina: 7520, stas: 7950, grisha: 8090, pavel: 8170, klava: 7830, arkady: 8900 };
+    for (const npc of this.npcs) {
+      if (!npc || npc.gone || npc.walking) continue;
+      if (npc.kind === 'arkady') {
+        const show = day >= 3;
+        npc.hidden = !show;
+        npc.container.visible = show;
+        if (show) {
+          npc.x = 8900; npc.y = 600; npc.facing = -1;
+          npc.container.scale.x = npc.facing;
+          npc.container.x = npc.x;
+          npc.container.y = npc.y;
+        }
+        continue;
+      }
+      const spot = festivalSpots[npc.kind];
+      if (day >= 3 && spot !== undefined) {
+        npc.x = spot;
+        npc.y = 600;
+        npc.facing = npc.kind === 'zina' || npc.kind === 'klava' ? 1 : -1;
+        npc.container.scale.x = npc.facing;
+      } else if (npc.def && npc.def.x !== undefined && npc.kind !== 'boris') {
+        npc.x = npc.baseX;
+        npc.y = 600;
+        npc.facing = npc.def.facing === undefined ? 1 : npc.def.facing;
+        npc.container.scale.x = npc.facing;
+      }
+      npc.container.x = npc.x;
+      npc.container.y = npc.y;
+    }
     if (this.borisFinal) {
       const bx = day >= 3 ? 8500 : 5290;
       this.borisFinal.x = bx;
       this.borisFinal.container.x = bx;
     }
+    this.setFestivalLanterns(this.game && this.game.progress ? this.game.progress.festivalLanterns : []);
+    if (this.game && this.game.ui && this.game.ui.hud) this.game.ui.updateHUD();
+    if (this.game && this.game.world) this.updateGarden(this.game.progress.garden);
   }
 
   resetDaily() {
@@ -1011,6 +1129,11 @@ class World {
     if (flags && flags.borisIntro && this.borisIntro) {
       this.borisIntro.gone = true;
       this.borisIntro.container.visible = false;
+    }
+    if (this.tutorialDummy) {
+      const done = !!(flags && flags.broomTutorial);
+      this.tutorialDummy.defeated = done;
+      this.tutorialDummy.container.visible = !done;
     }
     this.setDay(progress.day || 1);
     this.resetDaily();
@@ -1143,9 +1266,13 @@ class World {
       const ly = 420 + Math.sin(i / 15 * Math.PI) * 16;
       add(lx, ly, 40, 0xffd38a, 0.25, 2.4);
     }
+    // старая плотина
+    add(9600, 560, 260, 0x9ccdd8, 0.16, 1.2);
+    add(10250, 500, 360, 0x9ccdd8, 0.18, 1.0);
+    add(10220, 350, 220, 0x8fc7d4, 0.12, 1.6);
     // огоньки-светляки
     const rng = mulberry32(4321);
-    const zones = [[150, 940], [1000, 1900], [2050, 2820], [2950, 4200], [4600, 5750], [5850, 7350], [7400, 9100]];
+    const zones = [[150, 940], [1000, 1900], [2050, 2820], [2950, 4200], [4600, 5750], [5850, 7350], [7400, 9100], [9250, 10550]];
     for (let i = 0; i < 78; i++) {
       const z = zones[Math.floor(rng() * zones.length)];
       const x = z[0] + rng() * (z[1] - z[0]);
@@ -1164,7 +1291,7 @@ class World {
   buildForeground() {
     const rng = mulberry32(8877);
     for (let i = 0; i < 70; i++) {
-      const x = 80 + rng() * 9000;
+      const x = 80 + rng() * 10500;
       const baseline = 600;
       const g = new PIXI.Graphics();
       const n = 3 + Math.floor(rng() * 4);
@@ -1206,20 +1333,27 @@ class World {
       ['water', 2480, 616, 'water1'],
       ['water', 2895, 576, 'water2'],
       ['water', 3140, 576, 'water3'],
+      ['water', 6785, 480, 'water4'],
       ['hop', 3270, 423, 'hop1'],
       ['hop', 3700, 298, 'hop2'],
       ['hop', 4130, 468, 'hop3'],
       // лес и мельница
       ['berries', 6180, 420, 'berries1'],
       ['berries', 6570, 405, 'berries2'],
-      ['berries', 7060, 398, 'berries3'],
-      ['mushroom', 6070, 560, 'mush1'],
+      ['berries', 7260, 435, 'berries3'],
+      ['mushroom', 5960, 495, 'mush1'],
       ['mushroom', 6450, 560, 'mush2'],
       ['mushroom', 7150, 560, 'mush3'],
       // площадь и дорога
-      ['herb', 7250, 560, 'herb1'],
+      ['herb', 6385, 495, 'herb1'],
       ['herb', 7610, 560, 'herb2'],
       ['herb', 7980, 560, 'herb3'],
+      // старая плотина
+      ['spring', 9800, 340, 'spring1'],
+      ['spring', 10370, 410, 'spring2'],
+      ['mushroom', 9600, 410, 'mush4'],
+      ['mushroom', 9980, 410, 'mush5'],
+      ['hop', 10550, 340, 'hop4'],
       // поручения
       ['flashlight', 7080, 556, 'flashlight'],
       ['lure', 2890, 560, 'lure'],
@@ -1240,6 +1374,7 @@ class World {
       [5950, 600],
       [7400, 600],
       [8130, 600],
+      [9600, 600],
     ];
     lanterns.forEach(([x, y], i) => {
       const c = new CheckpointLantern(this, x, y, i);
@@ -1265,6 +1400,11 @@ class World {
         lines: (game) => {
           const p = game.progress;
           const side = p.side.garden;
+          if (p.day >= 3) return [
+            { speaker: 'Баба Зина', text: 'Витенька! Я на площадь выбралась. Ноги еле донесли, зато мёд донесли.' },
+            { speaker: 'Витя', text: 'Спасибо, баба Зина. Сегодня деревня попробует, что мы сварили.' },
+            { speaker: 'Баба Зина', text: 'Попробует. И пусть только кто скажет, что сладко. Я сама ему скажу.' },
+          ];
           if (side === 'none') return [
             { speaker: 'Баба Зина', text: 'Витенька! Слыхала про долг. Опять, поди, в бутылку смотришь?' },
             { speaker: 'Витя', text: 'Не смотрю, баба Зина. Три года уже.' },
@@ -1300,6 +1440,11 @@ class World {
         lines: (game) => {
           const p = game.progress;
           const side = p.side.lure;
+          if (p.day >= 3 && side === 'done') return [
+            { speaker: 'Стас', text: 'Витя! Я на фестиваль пришёл. С блесной. Для солидности.' },
+            { speaker: 'Витя', text: 'А рыба?' },
+            { speaker: 'Стас', text: 'Рыба сегодня тоже празднует. В смысле — не клюёт. Но я не в обиде.' },
+          ];
           if (side === 'none' && p.day >= 2) return [
             { speaker: 'Стас', text: 'Витя! Слыхал, ты уже первую партию выгнал. Молодец. Слушай, у меня беда.' },
             { speaker: 'Витя', text: 'Рыба не клюёт?' },
@@ -1375,6 +1520,11 @@ class World {
         kind: 'pavel', name: 'Пал Палыч', portrait: 'pavel', x: 7160, y: 600, facing: -1,
         lines: (game) => {
           const p = game.progress;
+          if (p.day >= 3) return [
+            { speaker: 'Пал Палыч', text: 'Ну что, Витя. Я на площадь пришёл. Ноги старые, а любопытство молодое.' },
+            { speaker: 'Витя', text: 'Посмотрите, Пал Палыч. Это ваш рецепт.' },
+            { speaker: 'Пал Палыч', text: 'Наш. Только ты в него добавил себя. Так и должно быть.' },
+          ];
           if (p.stage === STAGES.MILL) return [
             { speaker: 'Пал Палыч', text: 'Ты, что ли, Витя? Вылитый отец. Только глаза другие. Трезвые.' },
             { speaker: 'Витя', text: 'Вы знали отца?' },
@@ -1411,11 +1561,17 @@ class World {
             { speaker: 'Клава', text: 'Судьи — деревня. А деревня любит, когда вкусно и когда честно. Иди вари. Чан у тебя, я знаю.' },
             { speaker: 'Клава', text: 'Хмель, мёд, вода, ягоды, травы. Всё есть в лесу и на площади. И не вздумай продать праздничную партию до суда — я запомню.' },
           ];
-          if (p.stage === STAGES.VILLAGE || p.stage === STAGES.BREW3) return [
-            { speaker: 'Клава', text: 'Ну что, «Зимний берег» готов? Неси сюда. Судьи уже скучают, а Борисыч делает вид, что ему всё равно.' },
-            { speaker: 'Витя', text: 'Скоро будет.' },
-            { speaker: 'Клава', text: 'Смотри, Витя. Сегодня деревня будет пить твою медовуху и вспоминать твоего отца. Не подведи.' },
-          ];
+          if (p.stage === STAGES.VILLAGE || p.stage === STAGES.BREW3) {
+            const lit = (p.festivalLanterns || []).length;
+            const lines = [
+              { speaker: 'Клава', text: 'Ну что, «Зимний берег» готов? Неси сюда. Судьи уже скучают, а Борисыч делает вид, что ему всё равно.' },
+              { speaker: 'Витя', text: 'Скоро будет.' },
+              { speaker: 'Клава', text: 'Смотри, Витя. Сегодня деревня будет пить твою медовуху и вспоминать твоего отца. Не подведи.' },
+            ];
+            if (lit < 5) lines.push({ speaker: 'Клава', text: `И фонарики не забудь. Пять штук на площадках и у сцены. Зажжено ${lit} из 5 — площадь пока тёмная.` });
+            else lines.push({ speaker: 'Клава', text: 'А фонарики уже горят. Вся площадь как в сказке. Ты только посмотри, сколько народу пришло.' });
+            return lines;
+          }
           if (p.stage === STAGES.JUDGE) {
             const hasFestival = (p.bottles || []).some(b => b.recipe === 'festival');
             if (!hasFestival) return [
@@ -1435,6 +1591,20 @@ class World {
             { speaker: 'Витя', text: 'Спасибо, Клава.' },
             { speaker: 'Клава', text: 'Да не за что. Принеси ещё бутылку. В смысле — на следующий год.' },
           ];
+          if (p.stage === STAGES.CITY_ORDER || p.stage === STAGES.CITY_PREP) return [
+            { speaker: 'Клава', text: 'Аркадий из города. Важный, как закрытая бочка. Но платит, говорят, хорошо.' },
+            { speaker: 'Витя', text: 'Мне нужны три бочки.' },
+            { speaker: 'Клава', text: 'Значит, сваришь. А я пока пригляжу за площадью. И за фонариками.' },
+          ];
+          if (p.stage === STAGES.CITY_DAM) return [
+            { speaker: 'Клава', text: 'На плотину собрался? Возьми фонарь. Там туман даже днём.' },
+            { speaker: 'Витя', text: 'Возьму.' },
+            { speaker: 'Клава', text: 'И грибы не ешь. Они для стаута.' },
+          ];
+          if (p.stage === STAGES.CITY_DELIVER) return [
+            { speaker: 'Клава', text: 'Стаут готов? Неси Аркадию. А потом — сюда. Фестиваль без тебя не заканчивается.' },
+            { speaker: 'Витя', text: 'Скоро.' },
+          ];
           if (p.stage === STAGES.DONE) return [
             { speaker: 'Клава', text: 'А, главный винодел! Медовуха ещё есть? Нет? Тогда иди вари. Ладно, иди отдыхай. Но потом — вари.' },
             { speaker: 'Витя', text: 'Обязательно.' },
@@ -1443,6 +1613,48 @@ class World {
             { speaker: 'Клава', text: 'Витя! Ты вовремя. Сегодня «Тихий берег» судят. Нужна праздничная медовуха — с ягодами и травами. Рецепт мой, банка твоя. Приз пополам. Шучу. Почти.' },
             { speaker: 'Витя', text: 'А судьи кто?' },
             { speaker: 'Клава', text: 'Судьи — деревня. А деревня любит, когда вкусно и когда честно. Иди вари. Чан у тебя, я знаю.' },
+          ];
+        },
+      },
+      {
+        kind: 'arkady', name: 'Аркадий', portrait: 'arkady', x: 8900, y: 600, facing: -1,
+        lines: (game) => {
+          const p = game.progress;
+          const s = p.stage;
+          if (s === STAGES.CITY_ORDER) return [
+            { speaker: 'Аркадий', text: 'Добрый вечер. Аркадий Штольц, городская гильдия. Я видел вашу медовуху на суде.' },
+            { speaker: 'Витя', text: 'И?' },
+            { speaker: 'Аркадий', text: 'Город берёт три бочки. Медовуха, пиво и ваша «Зимний берег». Каждая — не ниже семидесяти по вашей шкале. Свежие. Сварите после нашего разговора.' },
+            { speaker: 'Витя', text: 'Три бочки — это много.' },
+            { speaker: 'Аркадий', text: 'Зато город платит сорок тысяч. И ещё один заказ: плотинный стаут. Но для него нужна вода со старой плотины. Сначала — три бочки.' },
+            { speaker: 'Витя', text: 'Договорились.' },
+          ];
+          if (s === STAGES.CITY_PREP) {
+            const done = Object.keys(p.cityBrews || {}).length;
+            return [
+              { speaker: 'Аркадий', text: `Три бочки, Витя. Свежие партии. Готово: ${done} из 3.` },
+              { speaker: 'Витя', text: 'Варю.' },
+              { speaker: 'Аркадий', text: 'И не забудь: качество не ниже семидесяти. Город не пьёт «почти».' },
+            ];
+          }
+          if (s === STAGES.CITY_DAM) return [
+            { speaker: 'Аркадий', text: 'Три бочки готовы. Теперь стаут. Вода — только со старой плотины, за площадью. Дорога открыта.' },
+            { speaker: 'Витя', text: 'Найду родник.' },
+            { speaker: 'Аркадий', text: 'Возьми грибы в лесу. И не потеряй рецепт. Он старый, как сама плотина.' },
+          ];
+          if (s === STAGES.CITY_DELIVER) return [
+            { speaker: 'Аркадий', text: 'Стаут готов? Давай сюда. Город ждёт.' },
+            { speaker: 'Витя', text: 'Готов. «Старая плотина».' },
+            { speaker: 'Аркадий', text: 'Тёмный. Дымный. Хорошо. Вот сорок тысяч. Скажи Борисычу, что город теперь знает ваш берег.' },
+          ];
+          if (s === STAGES.FINALE || s === STAGES.DONE) return [
+            { speaker: 'Аркадий', text: 'Город доволен. В следующем году пришлю заказ на весь фестиваль.' },
+            { speaker: 'Витя', text: 'Присылайте.' },
+          ];
+          return [
+            { speaker: 'Аркадий', text: 'Я представляю городскую гильдию. Сегодня смотрю, кто здесь варит.' },
+            { speaker: 'Витя', text: 'Смотрите.' },
+            { speaker: 'Аркадий', text: 'Уже вижу. После суда поговорим о заказе.' },
           ];
         },
       },
@@ -1512,6 +1724,21 @@ class World {
             { speaker: 'Борисыч', text: 'Неси судьям. И не смотри на меня так. Я не судья. Я... наблюдатель.' },
             { speaker: 'Витя', text: 'Наблюдай.' },
           ];
+          if (s === STAGES.CITY_ORDER || s === STAGES.CITY_PREP) return [
+            { speaker: 'Борисыч', text: 'Городской покупатель. Аркадий. Смотри не продешеви, Витя. И не опозорь берег.' },
+            { speaker: 'Витя', text: 'Я варю. Не торгуюсь.' },
+            { speaker: 'Борисыч', text: 'Вот и правильно. А я посчитаю. Как всегда.' },
+          ];
+          if (s === STAGES.CITY_DAM) return [
+            { speaker: 'Борисыч', text: 'Старая плотина? Там мой отец воду брал. И твой, наверное, тоже.' },
+            { speaker: 'Витя', text: 'Значит, вода правильная.' },
+            { speaker: 'Борисыч', text: 'Правильная. Иди. И вернись с бочкой, а не с историей.' },
+          ];
+          if (s === STAGES.CITY_DELIVER) return [
+            { speaker: 'Борисыч', text: 'Неси Аркадию. Потом поговорим. У меня к тебе будет один последний счёт.' },
+            { speaker: 'Витя', text: 'Последний?' },
+            { speaker: 'Борисыч', text: 'Последний. Обещаю. Почти.' },
+          ];
           if (s === STAGES.FINALE) return [
             { speaker: 'Борисыч', text: 'Ну вот. Стоишь. С медовухой. А три дня назад стоял без денег и без лица.' },
             { speaker: 'Витя', text: 'Три дня назад я ещё не знал, что у меня есть берег.' },
@@ -1535,12 +1762,18 @@ class World {
 
     this.borisIntro = null;
     this.borisFinal = null;
+    this.arkady = null;
     npcDefs.forEach((def) => {
       const npc = new NPC(this.game, def);
       this.npcs.push(npc);
       this.entityLayer.addChild(npc.container);
       if (def.x === 960) this.borisIntro = npc;
       if (def.x === 5290) this.borisFinal = npc;
+      if (def.kind === 'arkady') {
+        this.arkady = npc;
+        npc.hidden = true;
+        npc.container.visible = false;
+      }
     });
 
     // таблички и чан как интерактивные точки
@@ -1566,6 +1799,10 @@ class World {
         { speaker: 'Надпись', text: 'ПЛОЩАДЬ «ТИХИЙ БЕРЕГ».' },
         { speaker: 'Надпись', text: 'Фестиваль. Здесь судят медовуху и людей. Иногда — справедливо.' },
       ] },
+      { x: 10080, y: 600, range: 82, lines: [
+        { speaker: 'Надпись', text: 'СТАРАЯ ПЛОТИНА. Построена при царе, разобрана при советах, забыта при всех.' },
+        { speaker: 'Надпись', text: 'Вода в роднике холодная. Грибы у камней — тёмные. Город платит за такую воду хорошо.' },
+      ] },
     ];
 
     // пчёлы у ульев
@@ -1590,6 +1827,266 @@ class World {
       this.scenery.addChild(g);
       this.crows.push({ g, ox: x, oy: y, flew: false, vx: 0, vy: 0, life: 1 });
     });
+
+    this.buildTutorialDummy();
+    this.buildFestival();
+  }
+
+  buildFestival() {
+    const group = new PIXI.Container();
+    this.crowdLayer.addChild(group);
+    this.festivalGroup = group;
+
+    // гирлянды через площадь
+    const bunt = new PIXI.Graphics();
+    const strings = [[7420, 438, 8180, 462], [8180, 462, 8900, 438], [8900, 438, 9180, 470]];
+    for (const [x1, y1, x2, y2] of strings) {
+      bunt.lineStyle(1.2, 0x2b241c, 0.9);
+      bunt.moveTo(x1, y1);
+      bunt.quadraticCurveTo((x1 + x2) / 2, Math.max(y1, y2) + 28, x2, y2);
+      for (let i = 1; i < 10; i++) {
+        const t = i / 10;
+        const x = U.lerp(x1, x2, t);
+        const y = U.lerp(y1, y2, t) + Math.sin(t * Math.PI) * 28;
+        const col = i % 3 === 0 ? 0x9b4f43 : i % 3 === 1 ? 0xc49a58 : 0x5c707a;
+        poly(bunt, [[x - 5, y], [x + 5, y], [x, y + 12]], col, 0.9);
+      }
+    }
+    group.addChild(bunt);
+
+    // длинные столы с угощением
+    const tables = [[7520, 1], [8880, -1], [9110, 1]];
+    for (const [tx, dir] of tables) {
+      const g = new PIXI.Graphics();
+      rect(g, tx - 52, -31, 104, 7, 0x5a4028);
+      rect(g, tx - 44, -24, 7, 24, 0x352518);
+      rect(g, tx + 37, -24, 7, 24, 0x352518);
+      for (let i = 0; i < 5; i++) {
+        const mx = tx - 38 + i * 19;
+        rect(g, mx - 3, -42, 6, 11, 0x39443b);
+        circle(g, mx, -43, 3, i % 2 ? 0xd8a85c : 0xb9853f, 0.95);
+      }
+      circle(g, tx + dir * 5, -34, 9, 0x9b7444);
+      circle(g, tx + dir * 5, -34, 6, 0xc69758);
+      this.festivalGroup.addChild(g);
+      g.x = 0; g.y = 600;
+    }
+
+    // толпа: силуэты, танцующие и поднимающие кружки
+    const spots = [
+      [7440, 600, 0.88, 0], [7510, 600, 0.78, 1], [7580, 600, 0.9, 2],
+      [7700, 600, 0.8, 0], [7760, 600, 0.86, 1], [7820, 600, 0.76, 2],
+      [7920, 600, 0.92, 0], [8010, 600, 0.82, 1], [8100, 600, 0.88, 2],
+      [8160, 600, 0.78, 0], [8840, 600, 0.86, 1], [8910, 600, 0.76, 2],
+      [8990, 600, 0.9, 0], [9070, 600, 0.82, 1], [9140, 600, 0.88, 2],
+      [8300, 576, 0.8, 1], [8420, 576, 0.86, 2], [8610, 576, 0.82, 0],
+      [8720, 576, 0.88, 1],
+    ];
+    const colors = [0x2b333a, 0x333a3b, 0x2a2f37, 0x3a3431, 0x303a36];
+    const rng = mulberry32(77231);
+    spots.forEach(([x, y, sc, dance], i) => {
+      const c = new PIXI.Container();
+      c.x = x; c.y = y; c.scale.set(sc);
+      const g = new PIXI.Graphics();
+      ellipse(g, 0, -2, 18, 5, 0x04070b, 0.28);
+      const col = colors[i % colors.length];
+      // тело
+      poly(g, [[-12, -54], [-14, -18], [15, -18], [12, -54], [5, -58], [-5, -58]], col);
+      // голова
+      circle(g, 0, -66, 10, 0xa38361);
+      // шапка/волосы
+      ellipse(g, 0, -75, 11, 4, i % 2 ? 0x49392c : 0x39444a);
+      rect(g, -6, -82, 12, 7, i % 2 ? 0x49392c : 0x39444a);
+      // лицо
+      circle(g, -3, -67, 1.1, 0x211c18, 0.85);
+      circle(g, 3, -67, 1.1, 0x211c18, 0.85);
+      line(g, -3, -61, 3, -61, 1, 0x5c4033, 0.7);
+      // руки
+      line(g, -13, -48, -22, -37, 3, col);
+      line(g, 13, -48, 21, -36, 3, col);
+      if (dance === 1) {
+        // кружка
+        rect(g, 18, -42, 8, 10, 0x9aa6a2);
+        line(g, 26, -40, 29, -36, 1.5, 0x9aa6a2);
+        line(g, 21, -42, 21, -48, 1.5, 0x9aa6a2);
+      } else if (dance === 2) {
+        // поднятая рука
+        line(g, 22, -37, 27, -59, 2.5, col);
+      }
+      c.addChild(g);
+      this.festivalGroup.addChild(c);
+      this.crowdFigures.push({
+        c, baseY: y, phase: rng() * TAU, dance: i % 3,
+        amp: dance === 0 ? 1.2 : 2.8,
+      });
+    });
+
+    // музыкант на сцене
+    {
+      const c = new PIXI.Container();
+      c.x = 8490; c.y = 576;
+      const g = new PIXI.Graphics();
+      ellipse(g, 0, -2, 20, 5, 0x04070b, 0.3);
+      poly(g, [[-12, -56], [-15, -19], [15, -19], [12, -56], [4, -60], [-4, -60]], 0x4d3a2e);
+      circle(g, 0, -68, 10, 0xa38361);
+      ellipse(g, 0, -77, 13, 4, 0x4a3a2b);
+      rect(g, -7, -84, 14, 7, 0x4a3a2b);
+      // гитара
+      ellipse(g, 12, -40, 12, 9, 0x8a5b36);
+      circle(g, 12, -40, 4, 0x35251a);
+      line(g, 17, -46, 34, -62, 3, 0x5a3c25);
+      circle(g, 34, -62, 4, 0x6e4a2e);
+      c.addChild(g);
+      this.festivalGroup.addChild(c);
+      this.crowdFigures.push({ c, baseY: 576, phase: 1.3, dance: 1, amp: 1.5, musician: true });
+    }
+
+    // фонарики на площадках и у сцены
+    const lanternDefs = [
+      [8000, 500], [8255, 445], [8500, 500], [8755, 445], [8130, 600],
+    ];
+    lanternDefs.forEach(([x, y], i) => {
+      const c = new PIXI.Container();
+      c.x = x; c.y = y;
+      const g = new PIXI.Graphics();
+      drawLanternPost(g, 0, 0, false);
+      c.addChild(g);
+      const glow = softGlow(0xffb45e, 150, 0);
+      glow.x = 20; glow.y = -60;
+      glow.alpha = 0.13;
+      c.addChild(glow);
+      this.entityLayer.addChild(c);
+      c.visible = false;
+      this.festivalLanterns.push({
+        index: i, x: x + 20, y: y - 60, baseX: x, baseY: y,
+        container: c, g, glow, lit: false, phase: i * 1.7,
+      });
+    });
+
+    // фестивальная отделка площадок: гирлянда и флажки, чтобы их было видно
+    const festPlatforms = [[7940, 500, 130], [8190, 445, 130], [8430, 500, 130], [8680, 445, 130]];
+    for (const [x, y, w] of festPlatforms) {
+      const trim = new PIXI.Graphics();
+      trim.lineStyle(1.1, 0x2b241c, 0.9);
+      trim.moveTo(x + 5, y + 24);
+      trim.quadraticCurveTo(x + w / 2, y + 34, x + w - 5, y + 24);
+      for (let i = 0; i < 6; i++) {
+        const t = (i + 0.5) / 6;
+        const bx = x + 5 + (w - 10) * t;
+        const by = y + 24 + Math.sin(t * Math.PI) * 10;
+        circle(trim, bx, by, 2.1, 0xffcf72, 0.9);
+      }
+      for (let i = 0; i < 3; i++) {
+        const bx = x + 18 + i * (w - 36) / 2;
+        poly(trim, [[bx - 5, y + 27], [bx + 5, y + 27], [bx, y + 40]], i % 2 ? 0x9b4f43 : 0xc49a58, 0.9);
+      }
+      this.festivalGroup.addChild(trim);
+    }
+
+    group.visible = false;
+  }
+
+  updateFestivalVisibility() {
+    const on = this.day >= 3;
+    this.festivalActive = on;
+    if (this.festivalGroup) this.festivalGroup.visible = on;
+    for (const l of this.festivalLanterns) l.container.visible = on;
+    if (!on) this.fireworkTimer = 5;
+  }
+
+  lightFestivalLantern(index, silent) {
+    const l = this.festivalLanterns[index];
+    if (!l || l.lit) return false;
+    l.lit = true;
+    l.g.clear();
+    drawLanternPost(l.g, 0, 0, true);
+    l.glow.alpha = 0.58;
+    if (!silent) {
+      this.spawnBurst(l.x, l.y, 0xffd38a, 18);
+      this.game.audio.sfx('checkpoint');
+    }
+    return true;
+  }
+
+  setFestivalLanterns(litIndices) {
+    const set = new Set(litIndices || []);
+    for (const l of this.festivalLanterns) {
+      if (set.has(l.index)) {
+        l.lit = false;
+        this.lightFestivalLantern(l.index, true);
+      } else {
+        l.lit = false;
+        l.g.clear();
+        drawLanternPost(l.g, 0, 0, false);
+        l.glow.alpha = 0.13;
+      }
+    }
+  }
+
+  launchFirework() {
+    const colors = [0xffb45e, 0xf1d296, 0xd47b73, 0x9cdcea, 0xa7c98d];
+    const x = 7600 + Math.random() * 1350;
+    const y = 150 + Math.random() * 120;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const flash = softGlow(color, 120, 0.5);
+    flash.x = x; flash.y = y;
+    this.addParticle(flash, { life: 0.25, grow: 3 });
+    for (let i = 0; i < 34; i++) {
+      const ang = (i / 34) * TAU + Math.random() * 0.12;
+      const sp = 60 + Math.random() * 150;
+      const s = glowSprite(color, 5 + Math.random() * 10, 0.75);
+      s.x = x; s.y = y;
+      this.addParticle(s, {
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp,
+        gravity: 28,
+        life: 0.9 + Math.random() * 0.9,
+        grow: -2,
+      });
+    }
+    for (let i = 0; i < 14; i++) {
+      const s = glowSprite(0xfff1c9, 2 + Math.random() * 4, 0.7);
+      s.x = x; s.y = y;
+      this.addParticle(s, {
+        vx: (Math.random() - 0.5) * 220,
+        vy: (Math.random() - 0.5) * 180,
+        gravity: 50,
+        life: 0.5 + Math.random() * 0.6,
+      });
+    }
+  }
+
+  buildTutorialDummy() {
+    const x = 3785, y = 600;
+    const c = new PIXI.Container();
+    c.x = x; c.y = y;
+    const shadow = new PIXI.Graphics();
+    ellipse(shadow, 0, 0, 27, 7, 0x04070b, 0.38);
+    c.addChild(shadow);
+    const g = new PIXI.Graphics();
+    drawScarecrow(g, 0, 0);
+    c.addChild(g);
+    // маленькая табличка «F»
+    const sign = new PIXI.Graphics();
+    rect(sign, -45, -88, 30, 22, 0x4a3826);
+    rect(sign, -43, -86, 26, 18, 0x82643d);
+    line(sign, -30, -66, -30, -54, 3, 0x5a4128);
+    const mark = makeText('F', {
+      fontFamily: FONT_UI, fontSize: 13, fontWeight: '700', fill: 0x241a10,
+    }, 0.5);
+    mark.x = -30; mark.y = -77;
+    c.addChild(sign, mark);
+    this.entityLayer.addChild(c);
+    this.tutorialDummy = {
+      x, y, hp: 3, maxHp: 3, defeated: false,
+      container: c, art: g, glow: 0,
+    };
+  }
+
+  hideTutorialDummy() {
+    if (!this.tutorialDummy) return;
+    this.tutorialDummy.defeated = true;
+    this.tutorialDummy.container.visible = false;
   }
 
   buildAmbience() {
@@ -1773,6 +2270,26 @@ class World {
 
     // NPC
     for (const n of this.npcs) n.update(dt, t);
+
+    // фестиваль: толпа, фонарики, фейерверк
+    if (this.festivalActive) {
+      for (const f of this.crowdFigures) {
+        if (!f.c) continue;
+        f.c.y = f.baseY + Math.sin(t * (f.musician ? 2.2 : 1.7) + f.phase) * f.amp;
+        f.c.rotation = Math.sin(t * 1.3 + f.phase) * (f.dance === 2 ? 0.025 : 0.012);
+      }
+      for (const l of this.festivalLanterns) {
+        if (!l.lit) continue;
+        l.glow.alpha = 0.48 + Math.sin(t * 3.1 + l.phase) * 0.1;
+        l.glow.scale.set(1 + Math.sin(t * 1.8 + l.phase) * 0.04);
+      }
+      this.fireworkTimer -= dt;
+      if (this.fireworkTimer <= 0) {
+        this.fireworkTimer = 6.5 + Math.random() * 6;
+        this.launchFirework();
+        if (Math.random() < 0.5) this.launchFirework();
+      }
+    }
 
     // фонари
     for (const c of this.checkpoints) c.update(dt, t);
@@ -2143,6 +2660,16 @@ class World {
         else prompt = 'E — полить';
         bestD = d;
         best = { type: 'garden', bed, prompt, x: bed.x, y: 600 };
+      }
+    }
+    if (this.day >= 3) {
+      for (const l of this.festivalLanterns) {
+        if (l.lit) continue;
+        const d = Math.abs(player.cx - l.x);
+        if (d < 60 && Math.abs(player.feet - l.baseY) < 90 && d < bestD) {
+          bestD = d;
+          best = { type: 'lantern', lantern: l, prompt: 'E — зажечь фонарик', x: l.baseX, y: l.baseY };
+        }
       }
     }
     return best;

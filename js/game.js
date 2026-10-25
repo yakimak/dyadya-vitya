@@ -76,7 +76,7 @@ class Game {
 
   freshInventory() {
     return {
-      hop: 0, honey: 0, water: 0, berries: 0, mushroom: 0, herb: 0, yeast: 0,
+      hop: 0, honey: 0, water: 0, berries: 0, mushroom: 0, herb: 0, yeast: 0, spring: 0,
       total() { return this.hop + this.honey + this.water; },
       baseReady() { return this.hop >= 3 && this.honey >= 3 && this.water >= 3; },
     };
@@ -92,7 +92,7 @@ class Game {
       health: 3,
       maxHealth: 3,
       bottles: [],
-      recipes: { mead: true, beer: false, festival: false },
+      recipes: { mead: true, beer: false, festival: false, stout: false },
       upgrades: { boots: false, kettle: false, lamp: false },
       seeds: 0,
       garden: [
@@ -102,7 +102,9 @@ class Game {
       ],
       side: { garden: 'none', lure: 'none', flashlight: 'none', crows: 0 },
       gardenHarvested: 0,
-      unlocked: { home: true, brewery: false, mill: false, village: false },
+      festivalLanterns: [],
+      cityBrews: {},
+      unlocked: { home: true, brewery: false, mill: false, village: false, dam: false },
       zones: {},
     };
   }
@@ -115,6 +117,9 @@ class Game {
       river: false,
       grove: false,
       brewery: false,
+      broomTutorial: false,
+      broomTutorialShown: false,
+      festivalSeen: false,
     };
   }
 
@@ -258,8 +263,24 @@ class Game {
       text = `Для «Зимнего берега»: хмель ${Math.min(inv.hop, 2)}/2 · мёд ${Math.min(inv.honey, 2)}/2 · вода ${Math.min(inv.water, 2)}/2 · ягоды ${Math.min(inv.berries, 2)}/2 · травы ${Math.min(inv.herb, 1)}/1`;
     } else if (s === STAGES.JUDGE) {
       text = 'Отнести медовуху на судейский стол у сцены';
+    } else if (s === STAGES.CITY_ORDER) {
+      text = 'Поговорить с Аркадием у правого прилавка';
+    } else if (s === STAGES.CITY_PREP) {
+      const b = p.cityBrews || {};
+      text = `Три свежие бочки для города: медовуха ${b.mead ? '✓' : '—'} · пиво ${b.beer ? '✓' : '—'} · «Зимний берег» ${b.festival ? '✓' : '—'}`;
+    } else if (s === STAGES.CITY_DAM) {
+      if ((inv.spring || 0) >= 2 && (inv.mushroom || 0) >= 2) {
+        text = 'Сварить «Плотинный стаут» у чана';
+      } else {
+        text = `Старая плотина: родник ${Math.min(inv.spring || 0, 2)}/2 · грибы ${Math.min(inv.mushroom || 0, 2)}/2`;
+      }
+    } else if (s === STAGES.CITY_DELIVER) {
+      text = 'Отнести стаут Аркадию на площадь';
     } else if (s === STAGES.SLEEP1 || s === STAGES.SLEEP2) {
       text = 'Вернуться домой, в свою кровать, и лечь спать';
+    }
+    if (p.day >= 3 && s !== STAGES.FINALE && s !== STAGES.DONE) {
+      text += ` · фонарики ${(p.festivalLanterns || []).length}/5`;
     }
     this.objectiveText = text;
     this.ui.setObjective(text);
@@ -315,6 +336,69 @@ class Game {
     this.audio.sfx('checkpoint');
     this.shake(1.2, 0.35);
     const s = this.progress.stage;
+
+    // городской заказ: три свежие бочки, потом стаут
+    if (s === STAGES.CITY_PREP) {
+      if (result.quality < 70) {
+        this.ui.toast('Город не примет', 'нужно качество не ниже 70', 0xd98f7b);
+        this.saveGame();
+        return;
+      }
+      const p = this.progress;
+      p.cityBrews = p.cityBrews || {};
+      if (['mead', 'beer', 'festival'].includes(result.recipe)) {
+        if (!p.cityBrews[result.recipe]) {
+          p.cityBrews[result.recipe] = true;
+          const done = Object.keys(p.cityBrews).length;
+          this.ui.toast('Бочка для города готова', `${done} / 3 · ${recipe.short}`, 0x9ccdd8);
+        }
+        if (Object.keys(p.cityBrews).length >= 3) {
+          p.unlocked.dam = true;
+          p.recipes.stout = true;
+          this.inventory.hop = Math.max(this.inventory.hop, 3);
+          this.inventory.honey = Math.max(this.inventory.honey, 2);
+          this.inventory.water = Math.max(this.inventory.water, 3);
+          this.inventory.yeast = Math.max(this.inventory.yeast, 1);
+          this.world.updateGates && this.world.updateGates();
+          this.world.resetDaily && this.world.resetDaily();
+          this.setStage(
+            STAGES.CITY_DAM,
+            'Глава 5 · Старая плотина',
+            'три бочки готовы · рецепт «Плотинный стаут»',
+            0x9ccdd8
+          );
+          this.ui.toast('Новый рецепт', '«Плотинный стаут» · нужна родниковая вода', 0xd8a85c);
+          this.audio.sfx('buy');
+        }
+      } else {
+        this.ui.toast('Не тот напиток', 'нужны медовуха, пиво и «Зимний берег»', 0xd98f7b);
+      }
+      this.ui.updateHUD();
+      this.refreshObjective();
+      this.saveGame();
+      return;
+    }
+
+    if (s === STAGES.CITY_DAM && result.recipe === 'stout') {
+      if (result.quality < 70) {
+        this.inventory.hop = Math.max(this.inventory.hop, 2);
+        this.inventory.honey = Math.max(this.inventory.honey, 1);
+        this.inventory.water = Math.max(this.inventory.water, 2);
+        this.inventory.yeast = Math.max(this.inventory.yeast, 1);
+        this.inventory.mushroom = Math.max(this.inventory.mushroom, 2);
+        this.inventory.spring = Math.max(this.inventory.spring, 2);
+        this.ui.toast('Стаут не удался', 'нужно качество не ниже 70 · припасы возвращены', 0xd98f7b);
+        this.ui.updateHUD();
+        this.saveGame();
+        return;
+      }
+      this.setStage(STAGES.CITY_DELIVER, 'Стаут «Старая плотина» готов', 'отнеси заказ Аркадию на площадь', 0xd8a85c);
+      this.audio.sfx('buy');
+      this.refreshObjective();
+      this.saveGame();
+      return;
+    }
+
     if (result.recipe === 'mead' && (s === STAGES.GATHER1 || s === STAGES.BREW1 || s === STAGES.INTRO)) {
       this.setStage(STAGES.PAY1, 'Первая партия готова', 'продай бутылки и рассчитайся с Борисычем', 0xffca7a);
     } else if (result.recipe === 'beer' && s === STAGES.BREW2) {
@@ -405,6 +489,15 @@ class Game {
     else if (side.flashlight === 'found') lines.push('Гриша: вернуть фонарик ✓');
     if (side.crows > 0) lines.push(`Вороны в лесу: разогнано ${side.crows}`);
     if (this.defense && this.defense.active) lines.push('Пивоварня: отбить сборщиков');
+    if (this.progress.day >= 3) lines.push(`Фестиваль: фонарики ${(this.progress.festivalLanterns || []).length}/5`);
+    if (this.progress.stage === STAGES.CITY_PREP) {
+      const b = this.progress.cityBrews || {};
+      lines.push(`Город: бочки ${['mead','beer','festival'].filter(k=>b[k]).length}/3`);
+    } else if (this.progress.stage === STAGES.CITY_DAM) {
+      lines.push('Старая плотина: найти родниковую воду');
+    } else if (this.progress.stage === STAGES.CITY_DELIVER) {
+      lines.push('Город: отнести стаут Аркадию');
+    }
     return lines;
   }
 
@@ -471,7 +564,13 @@ class Game {
           this.ui.setFade(0.9);
           this.ui.fadeIn(1.0);
           this.refreshObjective();
-          this.ui.toast(next === 2 ? 'День второй' : 'День третий', next === 2 ? 'дорога на мельницу открыта' : 'пора на площадь', 0xffca7a);
+          if (next === 3) {
+            this.audio.setMode('festival');
+            this.world.launchFirework();
+            this.ui.toast('День третий · Фестиваль', 'зажги 5 фонариков и свари «Зимний берег»', 0xffca7a);
+          } else {
+            this.ui.toast('День второй', 'дорога на мельницу открыта', 0xffca7a);
+          }
           this.saveGame();
         },
       });
@@ -544,7 +643,50 @@ class Game {
         hitAny = true;
       }
     }
+    const d = this.world.tutorialDummy;
+    if (d && !d.defeated && Math.abs(d.x - hx) < 72 && Math.abs((d.y - 54) - hy) < 82) {
+      this.hitTutorialDummy();
+      hitAny = true;
+    }
     if (hitAny) this.shake(1.5, 0.12);
+  }
+
+  hitTutorialDummy() {
+    const d = this.world.tutorialDummy;
+    if (!d || d.defeated) return;
+    d.hp--;
+    this.world.spawnBurst(d.x, d.y - 58, 0xffd58a, 10);
+    this.audio.sfx('hit');
+    this.shake(1.2, 0.12);
+    if (d.hp > 0) {
+      d.art.rotation = (Math.random() - 0.5) * 0.08;
+      setTimeout(() => { if (d.art) d.art.rotation = 0; }, 90);
+      return;
+    }
+    d.defeated = true;
+    d.container.visible = false;
+    this.flags.broomTutorial = true;
+    this.flags.broomTutorialShown = true;
+    this.progress.money += 300;
+    this.progress.reputation = Math.min(100, this.progress.reputation + 2);
+    this.ui.hideTutorial();
+    this.ui.toast('Обучение метле пройдено', '+300 ₽ · метла слушается', 0xffca7a);
+    this.audio.sfx('checkpoint');
+    this.world.spawnBurst(d.x, d.y - 50, 0xa7c98d, 22);
+    this.ui.updateHUD();
+    this.saveGame();
+  }
+
+  showBroomTutorial() {
+    if (this.flags.broomTutorialShown || this.flags.broomTutorial) return;
+    this.flags.broomTutorialShown = true;
+    this.ui.showTutorial(
+      'МЕТЛА · БОЙ',
+      'F — удар метлой. Подойди к чучелу и разбей его: три удара.',
+      'Метла пригодится в лесу и при защите пивоварни.',
+      8.5
+    );
+    this.saveGame();
   }
 
   onEnemyDefeated(enemy) {
@@ -644,6 +786,14 @@ class Game {
     this.ui.updateHUD();
     this.ui.setObjective('Отбить сборщиков: волна 1 / 3');
     this.ui.toast('Держи пивоварню!', 'три волны сборщиков', 0xd98f5a);
+    if (!this.flags.broomTutorial) {
+      this.ui.showTutorial(
+        'БОЙ · МЕТЛА',
+        'F — удар метлой. Держи дистанцию и бей сборщиков, пока они идут к чану.',
+        'Отбей три волны. Метла бьёт перед собой.',
+        11
+      );
+    }
     this.audio.setMode('night');
     this.cameraFocus = { x: 5150, y: 600 };
   }
@@ -750,14 +900,19 @@ class Game {
     }
     p.bottles.splice(bestIndex, 1);
     const sideBonus = (p.side.garden === 'done' ? 1 : 0) + (p.side.lure === 'done' ? 1 : 0) + (p.side.flashlight === 'done' ? 1 : 0);
-    const prize = 18000 + bestQuality * 120 + p.reputation * 50 + sideBonus * 500;
+    const prize = 18000 + bestQuality * 120 + p.reputation * 50 + sideBonus * 500 + (p.festivalLanterns || []).length * 250;
     p.money += prize;
     p.reputation = Math.min(100, p.reputation + 15);
-    this.setStage(STAGES.FINALE, 'Фестиваль: приз ваш!', `+${formatMoney(prize)} ₽ · репутация +15`, 0xffca7a);
+    this.setStage(STAGES.CITY_ORDER, 'Фестиваль: приз ваш!', `+${formatMoney(prize)} ₽ · городской заказ ждёт`, 0xffca7a);
+    this.audio.setMode('festival');
     this.audio.sfx('buy');
+    this.world.launchFirework();
+    this.world.launchFirework();
+    this.world.launchFirework();
     this.ui.updateHUD();
     this.saveGame();
     this.ui.toast('Медовуха «Зимний берег»', `оценка ${bestQuality} · приз ${formatMoney(prize)} ₽`, 0xffca7a);
+    this.ui.toast('Городской заказ', 'Аркадий ждёт у правого прилавка', 0x9ccdd8);
   }
 
   finishStory() {
@@ -776,7 +931,8 @@ class Game {
       this.progress.side.lure === 'done' && this.progress.side.flashlight === 'done'
         ? 'Стас получил свою блесну, Гриша — фонарик, а деревня — повод сидеть у пивоварни до утра.'
         : 'Стас всё ещё искал свою блесну, Гриша — батарейки. Но по вечерам они всё равно приходили к пивоварне.',
-      'На вывеске больше не было слова «долг». Только «Тихий берег». Пивоварня дяди Вити. Три дня позади.',
+      'Аркадий из городской гильдии увёз три бочки и оставил на стойке контракт. В нём было написано: «Тихий берег. Следующая партия — к зимней ярмарке».',
+      'На вывеске больше не было слова «долг». Только «Тихий берег». Пивоварня дяди Вити. Три дня позади — и целая жизнь впереди.',
     ];
     this.audio.setMode('ending');
     this.audio.sfx('ending');
@@ -904,7 +1060,9 @@ class Game {
     this.progress.side = Object.assign(base.side, p.side || {});
     this.progress.unlocked = Object.assign(base.unlocked, p.unlocked || {});
     this.progress.zones = Object.assign(base.zones, p.zones || {});
+    this.progress.cityBrews = Object.assign({}, p.cityBrews || {});
     this.progress.garden = Array.isArray(p.garden) && p.garden.length === 3 ? p.garden : base.garden;
+    this.progress.festivalLanterns = Array.isArray(p.festivalLanterns) ? p.festivalLanterns.filter(i => Number.isInteger(i) && i >= 0 && i < 5) : [];
     this.inventory = this.freshInventory();
     for (const k of Object.keys(ITEM_INFO)) this.inventory[k] = (data.inventory && data.inventory[k]) || 0;
     this.flags = Object.assign(this.freshFlags(), data.flags || {});
@@ -951,6 +1109,7 @@ class Game {
     this.refreshObjective();
     this.ui.updateHUD();
     this.audio.playAmbience('crickets', 0.15, 2);
+    if (this.progress.day >= 3 && this.progress.stage !== STAGES.DONE) this.audio.setMode('festival');
     if (this.progress.stage === STAGES.DEFENSE) this.pendingDefense = 2.2;
     this.ui.toast(`Продолжаем · день ${this.progress.day}`, this.objectiveText, 0xffca7a);
     const cp = this.world.checkpoints.find(c => Math.abs(c.x - this.checkpoint.x) < 28);
@@ -1053,6 +1212,7 @@ class Game {
       else if (input.wasPressed('Digit2')) this.fastTravel('brewery');
       else if (input.wasPressed('Digit3')) this.fastTravel('mill');
       else if (input.wasPressed('Digit4')) this.fastTravel('village');
+      else if (input.wasPressed('Digit5')) this.fastTravel('dam');
       return;
     }
     if (this.ui.journalActive) {
@@ -1187,8 +1347,35 @@ class Game {
       return;
     }
 
+    // страховка от перепрыгивания закрытых ворот
+    if (this.progress.day < 2 && this.player.cx > 5855) {
+      this.player.respawn(5660, 600);
+      this.checkpoint = { x: 5660, y: 600 };
+      this.snapCamera();
+      this.ui.toast('Ворота заперты', 'сначала разберись с долгом', 0xd98f7b);
+    }
+    if (this.progress.day < 3 && this.player.cx > 7400) {
+      this.player.respawn(7180, 600);
+      this.checkpoint = { x: 7180, y: 600 };
+      this.snapCamera();
+      this.ui.toast('Дорога на площадь закрыта', 'фестиваль ещё не начался', 0xd98f7b);
+    }
+    if (!this.progress.unlocked.dam && this.player.cx > 9240) {
+      this.player.respawn(9020, 600);
+      this.checkpoint = { x: 9020, y: 600 };
+      this.snapCamera();
+      this.ui.toast('Дорога на плотину закрыта', 'сначала выполни городской заказ', 0x9ccdd8);
+    }
+
     // фонари
     this.world.checkCheckpoint(this.player);
+
+    // первое знакомство с метлой
+    const dummy = this.world.tutorialDummy;
+    if (dummy && !dummy.defeated && !this.flags.broomTutorialShown &&
+        Math.abs(this.player.cx - dummy.x) < 175) {
+      this.showBroomTutorial();
+    }
 
     // ингредиенты
     const item = this.world.collectNear(this.player);
@@ -1229,6 +1416,10 @@ class Game {
       this.progress.zones.village = true;
       this.progress.unlocked.village = true;
       this.ui.toast('Площадь «Тихий берег»', 'здесь сегодня варят и судят', 0xffca7a);
+    }
+    if (!this.progress.zones.dam && this.player.cx > 9300) {
+      this.progress.zones.dam = true;
+      this.ui.toast('Старая плотина', 'родник, туман и старые камни', 0x9ccdd8);
     }
     if (this.player.cx > 5920) this.spawnForestCrows();
 
@@ -1388,6 +1579,60 @@ class Game {
       this.ui.toast('Три дня', 'долг — 47 000 ₽', 0xd98f5a);
       this.refreshObjective();
       this.saveGame();
+      return;
+    }
+
+    if (npc.kind === 'arkady') {
+      if (s === STAGES.CITY_ORDER) {
+        p.recipes.mead = true;
+        p.recipes.beer = true;
+        p.recipes.festival = true;
+        p.cityBrews = {};
+        p.unlocked.dam = false;
+        this.inventory.hop += 10;
+        this.inventory.honey += 10;
+        this.inventory.water += 12;
+        this.inventory.berries += 5;
+        this.inventory.herb += 3;
+        this.inventory.yeast += 6;
+        this.world.resetDaily && this.world.resetDaily();
+        this.setStage(
+          STAGES.CITY_PREP,
+          'Глава 4 · Городской заказ',
+          'три свежие бочки · качество 70+',
+          0x9ccdd8
+        );
+        this.ui.toast('Припасы от города', 'хмель, мёд, вода, ягоды и дрожжи', 0x9ccdd8);
+        this.audio.sfx('buy');
+        this.ui.updateHUD();
+        this.refreshObjective();
+        this.saveGame();
+        return;
+      }
+      if (s === STAGES.CITY_DELIVER) {
+        p.money += 40000;
+        p.reputation = Math.min(100, p.reputation + 15);
+        // забираем одну партию стаута
+        const idx = p.bottles.findIndex(b => b.recipe === 'stout');
+        if (idx >= 0) {
+          p.bottles[idx].count--;
+          if (p.bottles[idx].count <= 0) p.bottles.splice(idx, 1);
+        }
+        this.setStage(
+          STAGES.FINALE,
+          'Городской заказ выполнен',
+          '+40 000 ₽ · город знает «Тихий берег»',
+          0xffca7a
+        );
+        this.audio.sfx('buy');
+        this.world.launchFirework();
+        this.world.launchFirework();
+        this.ui.updateHUD();
+        this.refreshObjective();
+        this.saveGame();
+        return;
+      }
+      this.refreshObjective();
       return;
     }
 
@@ -1567,7 +1812,31 @@ class Game {
       this.trySleep();
     } else if (inter.type === 'garden') {
       this.useGarden(inter.bed);
+    } else if (inter.type === 'lantern') {
+      this.useFestivalLantern(inter.lantern);
     }
+  }
+
+  useFestivalLantern(lantern) {
+    if (!lantern) return;
+    const p = this.progress;
+    p.festivalLanterns = p.festivalLanterns || [];
+    if (lantern.lit) return;
+    if (!this.world.lightFestivalLantern(lantern.index, true)) return;
+    if (!p.festivalLanterns.includes(lantern.index)) p.festivalLanterns.push(lantern.index);
+    this.audio.sfx('checkpoint');
+    this.ui.toast('Фонарик зажжён', `${p.festivalLanterns.length} / 5`, 0xffd38a);
+    if (p.festivalLanterns.length >= 5) {
+      p.money += 1200;
+      p.reputation = Math.min(100, p.reputation + 6);
+      this.ui.toast('Площадь сияет', '+1 200 ₽ · репутация +6', 0xffca7a);
+      this.world.launchFirework();
+      this.world.launchFirework();
+      this.audio.sfx('buy');
+    }
+    this.ui.updateHUD();
+    this.refreshObjective();
+    this.saveGame();
   }
 
   useVat() {

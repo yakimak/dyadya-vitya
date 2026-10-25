@@ -646,6 +646,7 @@ function drawYeastIcon(g, x, y, s) {
 function drawItemIcon(g, type, x, y, s) {
   if (type === 'honey') drawHoneyIcon(g, x, y, s);
   else if (type === 'water') drawWaterIcon(g, x, y, s);
+  else if (type === 'spring') drawWaterIcon(g, x, y, s);
   else if (type === 'berries') drawBerriesIcon(g, x, y, s);
   else if (type === 'mushroom') drawMushroomIcon(g, x, y, s);
   else if (type === 'herb') drawHerbIcon(g, x, y, s);
@@ -1068,8 +1069,7 @@ function buildGrisha() {
   return { root, body, phase: Math.random() * 9, glow };
 }
 
-function buildBorisych() {
-  const root = new PIXI.Container();
+function buildBorisych() {  const root = new PIXI.Container();
   makeShadow(root, 1.3);
   const body = new PIXI.Container();
   root.addChild(body);
@@ -1128,6 +1128,51 @@ function buildBorisych() {
   return { root, body, phase: Math.random() * 9, cig };
 }
 
+function buildArkady() {
+  const root = new PIXI.Container();
+  makeShadow(root, 1.25);
+  const body = new PIXI.Container();
+  root.addChild(body);
+  const g = new PIXI.Graphics();
+  // ноги
+  rect(g, -12, -26, 9, 26, 0x24292a);
+  rect(g, 3, -26, 9, 26, 0x2a3031);
+  rect(g, -15, -4, 14, 4, 0x15191a);
+  rect(g, 1, -4, 14, 4, 0x15191a);
+  // городское пальто
+  poly(g, [[-18, -61], [-21, -30], [-17, -13], [17, -13], [21, -31], [18, -61], [10, -65], [-10, -65]], 0x34464a);
+  poly(g, [[-18, -59], [-8, -63], [-10, -15], [-17, -13], [-21, -31]], 0x40565a);
+  poly(g, [[18, -61], [8, -63], [10, -15], [17, -13], [21, -31]], 0x27373a);
+  // шарф
+  poly(g, [[-13, -66], [13, -66], [12, -57], [-11, -57]], 0x7a4a42);
+  // руки
+  poly(g, [[-21, -52], [-25, -37], [-18, -31], [-14, -41]], 0x2d3f43);
+  poly(g, [[21, -52], [25, -37], [18, -31], [14, -41]], 0x2d3f43);
+  // папка/контракт
+  rect(g, 10, -44, 15, 20, 0x7d5a36);
+  rect(g, 12, -42, 11, 16, 0xc7b28a);
+  line(g, 14, -38, 21, -38, 1, 0x6d583b);
+  line(g, 14, -34, 20, -34, 1, 0x6d583b);
+  // голова
+  circle(g, 0, -72, 11, 0xc08a64);
+  circle(g, 5, -70, 4.5, 0xa97555, 0.4);
+  // глаза/усы
+  circle(g, -4.5, -72, 1.4, 0x1d2020);
+  circle(g, 4.5, -72, 1.4, 0x1d2020);
+  line(g, -7, -65, 0, -64, 2, 0x44372d, 0.9);
+  line(g, 0, -64, 7, -65, 2, 0x44372d, 0.9);
+  // цилиндр
+  ellipse(g, 0, -84, 17, 4.5, 0x2a2e2d);
+  rect(g, -10, -99, 20, 15, 0x303635);
+  rect(g, -10, -86, 20, 3, 0x1e2221);
+  // цепочка
+  line(g, -13, -48, -3, -42, 1, 0xc9a86a, 0.8);
+  g.lineStyle(1.5, 0x9ccdd8, 0.3);
+  g.moveTo(12, -90); g.lineTo(16, -68); g.lineTo(11, -44);
+  body.addChild(g);
+  return { root, body, phase: Math.random() * 9 };
+}
+
 function drawGardenBed(g, x, baseY, stage, watered) {
   // деревянный короб
   rect(g, x - 26, baseY - 16, 52, 16, 0x3b2b1e);
@@ -1158,31 +1203,34 @@ function drawGardenBed(g, x, baseY, stage, watered) {
 }
 
 function drawGate(g, x, baseY, open) {
-  // столбы
-  rect(g, x - 70, baseY - 168, 12, 168, 0x3b2c1f);
-  rect(g, x + 58, baseY - 168, 12, 168, 0x3b2c1f);
-  circle(g, x - 64, baseY - 168, 6, 0x57412b);
-  circle(g, x + 64, baseY - 168, 6, 0x57412b);
-  line(g, x - 75, baseY - 150, x + 75, baseY - 150, 3, 0x2a1e14, 0.7);
+  // высокие воротные столбы
+  rect(g, x - 70, baseY - 250, 12, 250, 0x3b2c1f);
+  rect(g, x + 58, baseY - 250, 12, 250, 0x3b2c1f);
+  circle(g, x - 64, baseY - 250, 6, 0x57412b);
+  circle(g, x + 64, baseY - 250, 6, 0x57412b);
+  line(g, x - 75, baseY - 232, x + 75, baseY - 232, 3, 0x2a1e14, 0.7);
   if (open) {
     // створки распахнуты
-    line(g, x - 58, baseY - 146, x - 96, baseY - 124, 6, 0x4a3522);
-    line(g, x - 56, baseY - 90, x - 98, baseY - 72, 6, 0x4a3522);
-    line(g, x + 58, baseY - 146, x + 96, baseY - 124, 6, 0x4a3522);
-    line(g, x + 56, baseY - 90, x + 98, baseY - 72, 6, 0x4a3522);
+    line(g, x - 58, baseY - 228, x - 96, baseY - 204, 6, 0x4a3522);
+    line(g, x - 56, baseY - 120, x - 98, baseY - 100, 6, 0x4a3522);
+    line(g, x + 58, baseY - 228, x + 96, baseY - 204, 6, 0x4a3522);
+    line(g, x + 56, baseY - 120, x + 98, baseY - 100, 6, 0x4a3522);
     line(g, x - 60, baseY - 70, x + 60, baseY - 70, 4, 0x2a1e14, 0.5);
   } else {
-    // запертые створки
+    // запертые высокие створки
     for (let i = 0; i < 4; i++) {
-      rect(g, x - 58 + i * 29, baseY - 142, 26, 112, i % 2 ? 0x4c3622 : 0x402d1c);
-      line(g, x - 58 + i * 29, baseY - 142, x - 32 + i * 29, baseY - 30, 1.5, 0x2b1e13, 0.7);
+      rect(g, x - 58 + i * 29, baseY - 224, 26, 194, i % 2 ? 0x4c3622 : 0x402d1c);
+      line(g, x - 58 + i * 29, baseY - 224, x - 32 + i * 29, baseY - 30, 1.5, 0x2b1e13, 0.7);
     }
+    line(g, x - 60, baseY - 210, x + 60, baseY - 210, 5, 0x332417);
     line(g, x - 60, baseY - 128, x + 60, baseY - 128, 5, 0x332417);
     line(g, x - 60, baseY - 64, x + 60, baseY - 64, 5, 0x332417);
     // замок
-    circle(g, x, baseY - 96, 9, 0x8b744a);
-    circle(g, x, baseY - 96, 5, 0x2a2017);
-    line(g, x, baseY - 88, x, baseY - 78, 2, 0x2a2017);
+    circle(g, x, baseY - 160, 9, 0x8b744a);
+    circle(g, x, baseY - 160, 5, 0x2a2017);
+    line(g, x, baseY - 152, x, baseY - 142, 2, 0x2a2017);
+    // предупреждение
+    circle(g, x, baseY - 190, 2.2, 0xd98f5a, 0.8);
   }
 }
 
@@ -1339,9 +1387,37 @@ function drawMillBridge(g, x1, x2, y) {
   line(g, x1, y - 30, x2, y - 30, 2, 0x3b2b1d);
 }
 
-/* ============================================================
-   ПОРТРЕТЫ ДЛЯ ДИАЛОГОВ
-   ============================================================ */
+function drawScarecrow(g, x, baseY) {
+  // столб и перекладина
+  rect(g, x - 3, baseY - 104, 6, 104, 0x5a4128);
+  line(g, x - 34, baseY - 80, x + 34, baseY - 80, 5, 0x5a4128);
+  // мешковина
+  poly(g, [[-18, -92], [18, -92], [23, -56], [12, -30], [-12, -30], [-23, -56]], 0x9b8251);
+  poly(g, [[-18, -92], [-5, -96], [0, -50], [-12, -30], [-23, -56]], 0xb19662);
+  // заплатки
+  rect(g, 4, -78, 11, 11, 0x7d6642, 0.9);
+  line(g, 4, -78, 15, -67, 1, 0x4f402a, 0.8);
+  line(g, 15, -78, 4, -67, 1, 0x4f402a, 0.8);
+  // руки-палки
+  line(g, -34, -80, -44, -60, 3, 0x5a4128);
+  line(g, 34, -80, 44, -58, 3, 0x5a4128);
+  // голова-мешок
+  circle(g, 0, -115, 18, 0xa88c5a);
+  circle(g, -7, -119, 3, 0x2a241d);
+  circle(g, 7, -119, 3, 0x2a241d);
+  line(g, -8, -106, 8, -106, 2, 0x4a3626, 0.8);
+  // шляпа
+  ellipse(g, 0, -132, 26, 5, 0x4c3a26);
+  rect(g, -11, -143, 22, 12, 0x5b452b);
+  // солома
+  for (let i = 0; i < 12; i++) {
+    const sx = -24 + i * 4.3;
+    const sy = -46 + (i % 3) * 5;
+    line(g, sx, sy, sx + (i % 2 ? 3 : -3), sy + 18, 1.4, 0xc0a366, 0.85);
+  }
+  line(g, -12, -30, 0, -9, 2, 0x5a4128);
+  line(g, 12, -30, 0, -9, 2, 0x5a4128);
+}
 
 const PORTRAIT_CACHE = {};
 
@@ -1387,6 +1463,36 @@ function portraitTexture(kind) {
     ctx.beginPath();
     ctx.moveTo(34, 22); ctx.quadraticCurveTo(88, 32, 98, 112);
     ctx.lineTo(60, 112); ctx.quadraticCurveTo(62, 40, 30, 26); ctx.closePath(); ctx.fill();
+
+    if (kind === 'arkady') {
+      // городской покупатель
+      ctx.fillStyle = '#3b4d50';
+      ctx.fillRect(-18, -22, 36, 46);
+      ctx.fillStyle = '#c08a64';
+      ctx.beginPath(); ctx.ellipse(0, -50, 42, 47, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(160,105,75,.28)';
+      ctx.beginPath(); ctx.ellipse(18, -48, 22, 40, 0.1, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(40,32,28,.85)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-28, -60); ctx.quadraticCurveTo(-20, -64, -12, -60); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(12, -60); ctx.quadraticCurveTo(20, -64, 28, -60); ctx.stroke();
+      ctx.fillStyle = '#232127';
+      ctx.beginPath(); ctx.ellipse(-21, -51, 3.2, 4, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(21, -51, 3.2, 4, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#b97b58';
+      ctx.beginPath(); ctx.moveTo(-2, -46); ctx.quadraticCurveTo(8, -36, 0, -32); ctx.quadraticCurveTo(-7, -36, -2, -46); ctx.fill();
+      ctx.strokeStyle = '#4b3b2f'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(-22, -31); ctx.quadraticCurveTo(-9, -26, 0, -30); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -30); ctx.quadraticCurveTo(10, -26, 22, -32); ctx.stroke();
+      // цилиндр
+      ctx.fillStyle = '#2c3232';
+      ctx.fillRect(-42, -92, 84, 12);
+      ctx.beginPath(); ctx.ellipse(0, -92, 43, 9, 0, 0, TAU); ctx.fill();
+      ctx.fillRect(-30, -132, 60, 42);
+      ctx.fillStyle = '#46514f'; ctx.fillRect(-30, -100, 60, 9);
+      // воротник и галстук
+      ctx.fillStyle = '#263234'; ctx.beginPath(); ctx.moveTo(-32, 18); ctx.lineTo(0, 46); ctx.lineTo(32, 18); ctx.lineTo(20, 66); ctx.lineTo(-20, 66); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#7a4a42'; ctx.beginPath(); ctx.moveTo(-5, 8); ctx.lineTo(7, 8); ctx.lineTo(10, 42); ctx.lineTo(0, 54); ctx.lineTo(-10, 42); ctx.closePath(); ctx.fill();
+    }
 
     if (kind === 'vitya') {
       // шея

@@ -19,6 +19,7 @@ class UI {
     this.hud = new PIXI.Container();
     this.prompt = new PIXI.Container();
     this.toastLayer = new PIXI.Container();
+    this.tutorial = new PIXI.Container();
     this.dialog = new PIXI.Container();
     this.narration = new PIXI.Container();
     this.titleOverlay = new PIXI.Container();
@@ -34,6 +35,7 @@ class UI {
     this.root.addChild(this.hud);
     this.root.addChild(this.prompt);
     this.root.addChild(this.toastLayer);
+    this.root.addChild(this.tutorial);
     this.root.addChild(this.dialog);
     this.root.addChild(this.narration);
     this.root.addChild(this.journalOverlay);
@@ -49,6 +51,7 @@ class UI {
     this.prompt.visible = false;
     this.dialog.visible = false;
     this.narration.visible = false;
+    this.tutorial.visible = false;
     this.helpOverlay.visible = false;
     this.pauseOverlay.visible = false;
     this.titleOverlay.visible = false;
@@ -70,6 +73,7 @@ class UI {
     this.buildFade();
     this.buildHUD();
     this.buildPrompt();
+    this.buildTutorial();
     this.buildDialogue();
     this.buildNarration();
     this.buildTitle();
@@ -342,7 +346,10 @@ class UI {
     this.debtAmount.text = formatMoney(debtLeft) + ' ₽';
     this.moneyText.text = `в кармане: ${formatMoney(p.money || 0)} ₽`;
     const daysLeft = Math.max(1, 4 - (p.day || 1));
-    this.dayText.text = `день ${p.day || 1} / 3 · до срока ${daysLeft} дн.`;
+    const cityStage = ['city_order', 'city_prep', 'city_dam', 'city_deliver'].includes(p.stage);
+    this.dayText.text = cityStage
+      ? 'день 3 / 3 · городской заказ'
+      : `день ${p.day || 1} / 3 · до срока ${daysLeft} дн.`;
     const muted = this.game.audio.muted;
     this.hintText.text = muted
       ? 'A / D — идти   ПРОБЕЛ — прыжок   E — действие   F — метла   TAB — журнал   T — дороги   M — звук выкл.'
@@ -400,6 +407,91 @@ class UI {
     this.prompt.x = U.clamp(sx, 100, GAME_W - 100);
     this.prompt.y = sy;
     this.prompt.alpha = 0.96;
+  }
+
+  /* ================= ОБУЧЕНИЕ ================= */
+
+  buildTutorial() {
+    const c = this.tutorial;
+    const bg = new PIXI.Graphics();
+    bg.beginFill(0x060d16, 0.94);
+    bg.drawRoundedRect(-330, -50, 660, 102, 9);
+    bg.endFill();
+    bg.lineStyle(1.2, 0xd8b06a, 0.5);
+    bg.drawRoundedRect(-329, -49, 658, 100, 8);
+    bg.endFill();
+    bg.beginFill(0xd8b06a, 0.9);
+    bg.drawRoundedRect(-330, -50, 5, 102, 2);
+    bg.endFill();
+    c.addChild(bg);
+
+    const label = makeText('ОБУЧЕНИЕ', {
+      fontFamily: FONT_UI, fontSize: 9.5, fontWeight: '700', fill: 0xb99a67, letterSpacing: 2.6,
+    });
+    label.x = -304; label.y = -35;
+    c.addChild(label);
+
+    const keyBg = new PIXI.Graphics();
+    keyBg.beginFill(0xd8b06a, 0.94);
+    keyBg.drawRoundedRect(-304, -14, 34, 34, 5);
+    keyBg.endFill();
+    c.addChild(keyBg);
+    this.tutorialKey = makeText('F', {
+      fontFamily: FONT_UI, fontSize: 17, fontWeight: '700', fill: 0x21170e,
+    }, 0.5);
+    this.tutorialKey.x = -287; this.tutorialKey.y = 3;
+    c.addChild(this.tutorialKey);
+
+    this.tutorialTitle = makeText('', {
+      fontFamily: FONT_UI, fontSize: 16, fontWeight: '700', fill: 0xf1e5cf,
+    });
+    this.tutorialTitle.x = -254; this.tutorialTitle.y = -24;
+    c.addChild(this.tutorialTitle);
+
+    this.tutorialText = makeText('', {
+      fontFamily: FONT_UI, fontSize: 12.5, fontWeight: '400', fill: 0xc5b9a5,
+      wordWrap: true, wordWrapWidth: 545, lineHeight: 17,
+    });
+    this.tutorialText.x = -254; this.tutorialText.y = 1;
+    c.addChild(this.tutorialText);
+
+    this.tutorialSub = makeText('', {
+      fontFamily: FONT_UI, fontSize: 10, fontWeight: '400', fill: 0x8f9b9e,
+    });
+    this.tutorialSub.x = -254; this.tutorialSub.y = 30;
+    c.addChild(this.tutorialSub);
+
+    c.x = 640; c.y = 300;
+    c.visible = false;
+    this.tutorialState = null;
+  }
+
+  showTutorial(title, text, sub, dur) {
+    this.tutorialTitle.text = title || '';
+    this.tutorialText.text = text || '';
+    this.tutorialSub.text = sub || '';
+    this.tutorial.visible = true;
+    this.tutorial.alpha = 0;
+    this.tutorial.x = 640;
+    this.tutorial.y = 300;
+    this.tutorialState = { life: 0, dur: dur || 8 };
+  }
+
+  hideTutorial() {
+    this.tutorial.visible = false;
+    this.tutorialState = null;
+  }
+
+  updateTutorial(dt) {
+    if (!this.tutorialState || !this.tutorial.visible) return;
+    const s = this.tutorialState;
+    s.life += dt;
+    this.tutorial.alpha = Math.min(1, s.life * 5);
+    if (s.life > s.dur) {
+      this.tutorial.alpha = Math.max(0, 1 - (s.life - s.dur) * 2.4);
+      if (this.tutorial.alpha <= 0) this.hideTutorial();
+    }
+    if (this.tutorial.alpha > 0) this.tutorial.y = 300 + Math.sin(this.game.time * 1.5) * 1.2;
   }
 
   /* ================= ДИАЛОГ ================= */
@@ -483,6 +575,7 @@ class UI {
     this.dialogueActive = true;
     this.dialog.visible = true;
     this.dialog.alpha = 1;
+    this.hideTutorial();
     if (this.hint) this.hint.visible = false;
     this.setDialogueLine(this.dialogState);
     this.prompt.visible = false;
@@ -494,6 +587,7 @@ class UI {
     if (speaker.includes('Зина')) return 'zina';
     if (speaker.includes('Стас')) return 'stas';
     if (speaker.includes('Гриша')) return 'grisha';
+    if (speaker.includes('Аркадий')) return 'arkady';
     if (speaker.includes('Витя')) return 'vitya';
     return 'narrator';
   }
@@ -776,7 +870,7 @@ class UI {
     rule.beginFill(0xd8b06a, 0.8); rule.drawCircle(640, 330, 2.4); rule.endFill();
     t.addChild(rule);
 
-    const tag = makeText('три дня · один долг · сорок семь тысяч', {
+    const tag = makeText('пять глав · один долг · сорок семь тысяч', {
       fontFamily: FONT_UI, fontSize: 13.5, fontWeight: '500', fill: 0xaeb6b8, letterSpacing: 2.6,
     }, 0.5);
     tag.x = 640; tag.y = 356;
@@ -1119,7 +1213,7 @@ class UI {
     // средняя — рецепты и бутылки
     this.journalHeader('ВАРКА', 460, 178);
     let ry = 198;
-    for (const key of ['mead', 'beer', 'festival']) {
+    for (const key of ['mead', 'beer', 'festival', 'stout']) {
       const r = RECIPES[key];
       const unlocked = !!(p.recipes && p.recipes[key]);
       this.journalText(unlocked ? r.name : '??? — рецепт ещё не найден', 460, ry, {
@@ -1129,7 +1223,7 @@ class UI {
       this.journalText(unlocked ? `${ing}  →  ${r.bottles} бут.` : 'Нужно найти человека, который помнит рецепт.', 460, ry + 22, {
         fontSize: 11.5, fill: unlocked ? 0x9fb0a9 : 0x5f6971, wordWrapWidth: 330, lineHeight: 16,
       });
-      ry += 66;
+      ry += 48;
     }
 
     this.journalHeader('БУТЫЛКИ', 460, 402);
@@ -1216,10 +1310,10 @@ class UI {
 
     // строки рецептов
     this.brewRows = {};
-    const keys = ['mead', 'beer', 'festival'];
+    const keys = ['mead', 'beer', 'festival', 'stout'];
     keys.forEach((key, i) => {
       const row = new PIXI.Container();
-      row.x = 180; row.y = 158 + i * 94;
+      row.x = 180; row.y = 150 + i * 87;
       const rowBg = new PIXI.Graphics();
       row.addChild(rowBg);
       const name = makeText('', {
@@ -1278,18 +1372,29 @@ class UI {
     });
     this.brewRecipeDesc.x = 590; this.brewRecipeDesc.y = 285;
     this.brewSelectGroup.addChild(this.brewRecipeDesc);
+    this.brewRecipeProcess = makeText('', {
+      fontFamily: FONT_UI, fontSize: 10.5, fontWeight: '500', fill: 0x9d8a6d,
+      wordWrap: true, wordWrapWidth: 400, lineHeight: 15,
+    });
+    this.brewRecipeProcess.x = 590; this.brewRecipeProcess.y = 345;
+    this.brewSelectGroup.addChild(this.brewRecipeProcess);
     this.brewSelectHint = makeText('↑ / ↓ — выбрать   ·   ПРОБЕЛ — варить   ·   ESC — выйти', {
       fontFamily: FONT_UI, fontSize: 11, fill: 0x7f8d98, letterSpacing: 1.2,
     });
-    this.brewSelectHint.x = 590; this.brewSelectHint.y = 390;
+    this.brewSelectHint.x = 590; this.brewSelectHint.y = 535;
     this.brewSelectGroup.addChild(this.brewSelectHint);
     this.brewMissing = makeText('', {
       fontFamily: FONT_UI, fontSize: 12.5, fill: 0xd98f7b,
     });
-    this.brewMissing.x = 590; this.brewMissing.y = 418;
+    this.brewMissing.x = 590; this.brewMissing.y = 563;
     this.brewSelectGroup.addChild(this.brewMissing);
 
     // процесс
+    this.brewStepNum = makeText('', {
+      fontFamily: FONT_UI, fontSize: 10.5, fontWeight: '700', fill: 0xb99a67, letterSpacing: 2.8,
+    }, 0.5);
+    this.brewStepNum.x = 840; this.brewStepNum.y = 160;
+    this.brewProcessGroup.addChild(this.brewStepNum);
     this.brewStageName = makeText('', {
       fontFamily: FONT_DISPLAY, fontSize: 32, fontWeight: '600', fill: 0xe5c897, letterSpacing: 3,
     }, 0.5);
@@ -1297,11 +1402,17 @@ class UI {
     this.brewProcessGroup.addChild(this.brewStageName);
     this.brewStageHint = makeText('', {
       fontFamily: FONT_UI, fontSize: 14, fill: 0xb8c3bc,
+      wordWrap: true, wordWrapWidth: 520, align: 'center', lineHeight: 18,
     }, 0.5);
     this.brewStageHint.x = 840; this.brewStageHint.y = 224;
     this.brewProcessGroup.addChild(this.brewStageHint);
     this.brewBarG = new PIXI.Graphics();
     this.brewProcessGroup.addChild(this.brewBarG);
+    this.brewGaugeText = makeText('', {
+      fontFamily: FONT_UI, fontSize: 13, fontWeight: '500', fill: 0xd8c7a9,
+    }, 0.5);
+    this.brewGaugeText.x = 840; this.brewGaugeText.y = 370;
+    this.brewProcessGroup.addChild(this.brewGaugeText);
     this.brewFeedback = makeText('', {
       fontFamily: FONT_UI, fontSize: 16, fontWeight: '700', fill: 0xe0c889,
     }, 0.5);
@@ -1357,19 +1468,22 @@ class UI {
   showBrewing(game) {
     this.brewingActive = true;
     this.brewingOverlay.visible = true;
+    this.hideTutorial();
     const unlocked = Object.keys(RECIPES).filter(k => game.progress.recipes[k]);
     this.brew = {
       phase: 'select',
       selected: unlocked[0] || 'mead',
-      marker: 0.05,
-      dir: 1,
-      stageIdx: 0,
+      stepIdx: 0,
+      steps: null,
+      step: null,
       score: 0,
-      stages: [
-        { name: 'ОГОНЬ', hint: 'держи ровный жар', center: 0.66, half: 0.12 },
-        { name: 'ХМЕЛЬ', hint: 'хмель любит точность', center: 0.31, half: 0.1 },
-        { name: 'МЁД', hint: 'мёд — в самый момент', center: 0.52, half: 0.085 },
-      ],
+      stepScore: 0,
+      marker: 0.06,
+      dir: 1,
+      value: 0.5,
+      timeLeft: 0,
+      inZone: 0,
+      hitsDone: 0,
       result: null,
     };
     this.brewSelectGroup.visible = true;
@@ -1377,6 +1491,7 @@ class UI {
     this.brewResultGroup.visible = false;
     this.brewCloseBtn.visible = true;
     this.brewActionBtn.label.text = 'ВАРИТЬ';
+    this.brewActionBtn.alpha = 1;
     this.renderBrewRecipes();
     this.game.audio.sfx('ui');
   }
@@ -1393,7 +1508,7 @@ class UI {
 
   renderBrewRecipes() {
     if (!this.brew) return;
-    for (const key of ['mead', 'beer', 'festival']) {
+    for (const key of ['mead', 'beer', 'festival', 'stout']) {
       const r = RECIPES[key];
       const ui = this.brewRows[key];
       if (!ui) continue;
@@ -1410,7 +1525,7 @@ class UI {
       ui.name.text = unlocked ? r.short : '??? — рецепт не найден';
       const ing = Object.entries(r.ingredients).map(([k, v]) => `${ITEM_INFO[k].short} ×${v}`).join(' · ');
       ui.ing.text = unlocked ? ing : 'Расспроси людей. Кто-то помнит, как варил твой отец.';
-      ui.count.text = unlocked ? `${r.bottles} бут.  ·  база ${formatMoney(r.basePrice)} ₽/бут.  ·  ${can ? 'можно варить' : 'не хватает припасов'}` : 'закрыто';
+      ui.count.text = unlocked ? `${r.bottles} бут.  ·  ${r.steps.length} этапа  ·  ${can ? 'можно варить' : 'не хватает припасов'}` : 'закрыто';
       ui.count.style.fill = can ? 0x9fc0a1 : 0x8f7c70;
     }
     const r = RECIPES[this.brew.selected];
@@ -1420,6 +1535,7 @@ class UI {
       ? Object.entries(r.ingredients).map(([k, v]) => `${ITEM_INFO[k].name} ×${v}   (есть ${this.game.inventory[k] || 0})`).join('\n')
       : 'Старые рецепты живут в памяти людей. Иногда — на старой мельнице.';
     this.brewRecipeDesc.text = unlocked ? r.desc : '';
+    this.brewRecipeProcess.text = unlocked ? 'ПРОЦЕСС: ' + r.steps.map(s => s.name.toLowerCase()).join(' → ') : '';
     this.brewSelectGroup.visible = true;
     this.brewProcessGroup.visible = false;
     this.brewResultGroup.visible = false;
@@ -1433,7 +1549,7 @@ class UI {
 
   selectBrewRecipe(dir) {
     if (!this.brew || this.brew.phase !== 'select') return;
-    const keys = ['mead', 'beer', 'festival'];
+    const keys = ['mead', 'beer', 'festival', 'stout'];
     let idx = keys.indexOf(this.brew.selected);
     idx = (idx + dir + keys.length) % keys.length;
     this.brew.selected = keys[idx];
@@ -1456,90 +1572,180 @@ class UI {
         return;
       }
       this.game.consumeIngredients(key);
+      const r = RECIPES[key];
       this.brew.phase = 'process';
-      this.brew.stageIdx = 0;
+      this.brew.steps = r.steps;
+      this.brew.stepIdx = 0;
       this.brew.score = 0;
-      this.brew.marker = 0.06;
-      this.brew.dir = 1;
+      this.brew.stepScore = 0;
       this.brewSelectGroup.visible = false;
       this.brewProcessGroup.visible = true;
       this.brewResultGroup.visible = false;
       this.brewCloseBtn.visible = false;
-      this.brewActionBtn.label.text = 'СТОП';
-      this.brewFeedback.text = '';
-      this.updateBrewStageUI();
+      this.initBrewStep();
       this.game.audio.sfx('brew');
     } else if (this.brew.phase === 'process') {
-      this.hitBrewMarker();
+      const s = this.brew.step;
+      if (!s) return;
+      if (s.type === 'timing') this.hitBrewMarker();
+      else if (s.type === 'balance') this.confirmBrewBalance();
+      else this.brewFeedback.text = 'Держи A / D в зелёной зоне';
     } else if (this.brew.phase === 'result') {
       this.completeBrew();
     }
   }
 
-  updateBrewStageUI() {
-    const s = this.brew.stages[this.brew.stageIdx];
-    if (!s) return;
+  initBrewStep() {
+    const s = this.brew.steps[this.brew.stepIdx];
+    this.brew.step = s;
+    this.brew.marker = 0.06;
+    this.brew.dir = 1;
+    this.brew.value = 0.5;
+    this.brew.hitsDone = 0;
+    this.brew.stepScore = 0;
+    this.brew.timeLeft = s.duration || 4;
+    this.brew.inZone = 0;
+    this.brew.zonePulse = 0;
+    this.brewStepNum.text = `ШАГ ${this.brew.stepIdx + 1} / ${this.brew.steps.length}`;
     this.brewStageName.text = s.name;
     this.brewStageHint.text = s.hint;
     this.brewFeedback.text = '';
+    this.brewGaugeText.text = '';
+    this.brewProcessHint.text = s.type === 'hold'
+      ? 'A / D — держать в зелёной зоне'
+      : s.type === 'balance'
+        ? 'A / D — регулировать   ·   ПРОБЕЛ — подтвердить'
+        : 'ПРОБЕЛ — добавить в нужный момент';
+    this.brewActionBtn.label.text = s.type === 'timing' ? 'ДОБАВИТЬ' : s.type === 'balance' ? 'ПОДТВЕРДИТЬ' : 'ДЕРЖИ';
+    this.brewActionBtn.alpha = s.type === 'hold' ? 0.55 : 1;
     this.drawBrewBar();
+  }
+
+  brewValueText(s, value) {
+    if (!s.scale) return '';
+    const v = s.scale[0] + value * (s.scale[1] - s.scale[0]);
+    return `${v.toFixed(1)}${s.scale[2]}`;
+  }
+
+  brewTargetText(s) {
+    if (!s.scale) return '';
+    const lo = s.scale[0] + (s.target - s.span) * (s.scale[1] - s.scale[0]);
+    const hi = s.scale[0] + (s.target + s.span) * (s.scale[1] - s.scale[0]);
+    return `${lo.toFixed(0)}–${hi.toFixed(0)}${s.scale[2]}`;
   }
 
   drawBrewBar() {
     const g = this.brewBarG;
-    const x = 590, y = 330, w = 500, h = 20;
-    const s = this.brew.stages[this.brew.stageIdx];
+    const s = this.brew.step;
     if (!s) return;
+    const x = 570, y = 330, w = 540, h = 22;
     g.clear();
-    g.beginFill(0x050a11, 0.95);
-    g.drawRoundedRect(x, y, w, h, 10);
+    g.beginFill(0x050a11, 0.96);
+    g.drawRoundedRect(x, y, w, h, 11);
     g.endFill();
-    g.lineStyle(1, 0x9fb0b5, 0.2);
-    g.drawRoundedRect(x, y, w, h, 10);
-    const tx = x + (s.center - s.half) * w;
-    const tw = s.half * 2 * w;
-    g.beginFill(0x6f8f5e, 0.55);
+    g.lineStyle(1, 0x9fb0b5, 0.22);
+    g.drawRoundedRect(x, y, w, h, 11);
+    // деления
+    for (let i = 0; i <= 10; i++) {
+      const tx = x + i / 10 * w;
+      g.lineStyle(1, 0x9fb0b5, i % 5 === 0 ? 0.25 : 0.10);
+      g.moveTo(tx, y + h + 2);
+      g.lineTo(tx, y + h + (i % 5 === 0 ? 9 : 5));
+    }
+    const tx = x + (s.target - s.span) * w;
+    const tw = s.span * 2 * w;
+    g.beginFill(0x6f8f5e, 0.44);
     g.drawRoundedRect(tx, y + 1, tw, h - 2, 8);
     g.endFill();
-    g.beginFill(0xa7c98d, 0.75);
-    g.drawRoundedRect(tx + tw * 0.35, y + 2, tw * 0.3, h - 4, 6);
+    g.beginFill(0xa7c98d, 0.70);
+    g.drawRoundedRect(tx + tw * 0.36, y + 2, tw * 0.28, h - 4, 6);
     g.endFill();
-    const mx = x + this.brew.marker * w;
-    g.beginFill(0xffd58a, 1);
-    g.drawRoundedRect(mx - 2, y - 7, 4, h + 14, 2);
+    const pos = s.type === 'timing' ? this.brew.marker : this.brew.value;
+    const mx = x + pos * w;
+    g.beginFill(s.type === 'hold' && Math.abs(pos - s.target) <= s.span ? 0xb9dc96 : 0xffd58a, 1);
+    g.drawRoundedRect(mx - 2, y - 8, 4, h + 16, 2);
     g.endFill();
-    g.beginFill(0xffe8b4, 0.5);
-    g.drawCircle(mx, y - 8, 4);
+    g.beginFill(0xffe8b4, 0.55);
+    g.drawCircle(mx, y - 10, 4.2);
     g.endFill();
-    // три точки стадий
-    for (let i = 0; i < 3; i++) {
-      g.beginFill(i < this.brew.stageIdx ? 0xd8b06a : 0x3a444e, i < this.brew.stageIdx ? 0.9 : 0.6);
-      g.drawCircle(840 - 18 + i * 18, 470, 3.2);
+    // точки этапов
+    const total = this.brew.steps.length;
+    for (let i = 0; i < total; i++) {
+      const dx = 840 - (total - 1) * 9 + i * 18;
+      g.beginFill(i < this.brew.stepIdx ? 0xd8b06a : i === this.brew.stepIdx ? 0xffe2ab : 0x3a444e, i <= this.brew.stepIdx ? 0.9 : 0.6);
+      g.drawCircle(dx, 472, i === this.brew.stepIdx ? 3.8 : 2.8);
       g.endFill();
     }
   }
 
+  updateBrewGaugeText() {
+    const s = this.brew.step;
+    if (!s) return;
+    const value = s.type === 'timing' ? this.brew.marker : this.brew.value;
+    if (s.type === 'hold') {
+      const inZone = Math.abs(value - s.target) <= s.span;
+      this.brewGaugeText.text = `${this.brewValueText(s, value)}   ·   цель ${this.brewTargetText(s)}   ·   ${Math.max(0, this.brew.timeLeft).toFixed(1)} с`;
+      this.brewGaugeText.style.fill = inZone ? 0xb9dc96 : 0xd6b18d;
+    } else if (s.type === 'balance') {
+      const diff = Math.abs(value - s.target);
+      this.brewGaugeText.text = `${this.brewValueText(s, value)}   ·   цель ${this.brewTargetText(s)}`;
+      this.brewGaugeText.style.fill = diff <= s.span ? 0xb9dc96 : 0xd6b18d;
+    } else {
+      this.brewGaugeText.text = `добавка ${this.brew.hitsDone + 1} / ${s.hits || 1}   ·   лови момент`;
+      this.brewGaugeText.style.fill = 0xd8c7a9;
+    }
+  }
+
   hitBrewMarker() {
-    const s = this.brew.stages[this.brew.stageIdx];
-    const diff = Math.abs(this.brew.marker - s.center);
-    let pts = 0;
+    const s = this.brew.step;
+    if (!s || s.type !== 'timing') return;
+    const diff = Math.abs(this.brew.marker - s.target);
+    const per = s.points / (s.hits || 1);
+    let mult = 0;
     let text = 'Мимо…';
     let col = 0xb87a6a;
-    if (diff <= s.half * 0.35) { pts = 20; text = 'Идеально!'; col = 0xa8d08d; }
-    else if (diff <= s.half * 0.85) { pts = 13; text = 'Хорошо.'; col = 0xd8c27a; }
-    else if (diff <= s.half * 1.45) { pts = 6; text = 'Почти.'; col = 0xc1a06a; }
-    else { pts = 0; text = 'Мимо…'; }
-    this.brew.score += pts;
+    if (diff <= s.span * 0.35) { mult = 1; text = 'Идеально!'; col = 0xa8d08d; }
+    else if (diff <= s.span * 0.85) { mult = 0.76; text = 'Хорошо.'; col = 0xd8c27a; }
+    else if (diff <= s.span * 1.45) { mult = 0.42; text = 'Почти.'; col = 0xc1a06a; }
+    const pts = Math.round(per * mult);
+    this.brew.stepScore += pts;
+    this.brew.hitsDone++;
     this.brewFeedback.text = `${text}  +${pts}`;
     this.brewFeedback.style.fill = col;
-    this.game.audio.sfx(pts >= 13 ? 'collectHoney' : pts > 0 ? 'ui' : 'deny');
-    this.brew.stageIdx++;
-    if (this.brew.stageIdx >= 3) {
-      this.finishBrew();
+    this.game.audio.sfx(pts >= per * 0.7 ? 'collectHoney' : pts > 0 ? 'ui' : 'deny');
+    if (this.brew.hitsDone >= (s.hits || 1)) {
+      this.completeBrewStep();
     } else {
       this.brew.marker = 0.06;
       this.brew.dir = 1;
-      this.updateBrewStageUI();
+      this.updateBrewGaugeText();
+    }
+  }
+
+  confirmBrewBalance() {
+    const s = this.brew.step;
+    if (!s || s.type !== 'balance') return;
+    const diff = Math.abs(this.brew.value - s.target);
+    let mult = 0;
+    let text = 'Мимо…';
+    let col = 0xb87a6a;
+    if (diff <= s.span * 0.35) { mult = 1; text = 'Точно!'; col = 0xa8d08d; }
+    else if (diff <= s.span * 0.85) { mult = 0.76; text = 'Хорошо.'; col = 0xd8c27a; }
+    else if (diff <= s.span * 1.45) { mult = 0.42; text = 'Почти.'; col = 0xc1a06a; }
+    this.brew.stepScore = Math.round(s.points * mult);
+    this.brewFeedback.text = `${text}  +${this.brew.stepScore}`;
+    this.brewFeedback.style.fill = col;
+    this.game.audio.sfx(mult >= 0.7 ? 'collectHoney' : mult > 0 ? 'ui' : 'deny');
+    this.completeBrewStep();
+  }
+
+  completeBrewStep() {
+    this.brew.score += this.brew.stepScore;
+    this.brew.stepIdx++;
+    if (this.brew.stepIdx >= this.brew.steps.length) {
+      this.finishBrew();
+    } else {
+      this.initBrewStep();
     }
   }
 
@@ -1556,9 +1762,10 @@ class UI {
     this.brewResultTitle.text = r.name;
     this.brewResultQuality.text = String(quality);
     const value = this.game.batchValue(result);
-    this.brewResultInfo.text = `${r.bottles} бутылок\nОриентировочно ${formatMoney(value)} ₽ при продаже`;
+    this.brewResultInfo.text = `${r.bottles} бутылок\n${r.tasting || 'вкус берега'}\nОриентировочно ${formatMoney(value)} ₽ при продаже`;
     this.brewResultHint.text = 'ПРОБЕЛ — забрать бутылки';
     this.brewActionBtn.label.text = 'ЗАБРАТЬ';
+    this.brewActionBtn.alpha = 1;
     this.brewCloseBtn.visible = false;
     this.game.audio.sfx('checkpoint');
   }
@@ -1575,13 +1782,37 @@ class UI {
 
   updateBrewing(dt) {
     if (!this.brewingActive || !this.brew) return;
-    if (this.brew.phase === 'process') {
-      const speed = 0.42 + this.brew.stageIdx * 0.1;
+    if (this.brew.phase !== 'process') return;
+    const s = this.brew.step;
+    if (!s) return;
+    const input = this.game.input;
+    if (s.type === 'timing') {
+      const speed = 0.40 + this.brew.stepIdx * 0.09 + (this.brew.hitsDone * 0.04);
       this.brew.marker += this.brew.dir * speed * dt;
       if (this.brew.marker >= 1) { this.brew.marker = 1; this.brew.dir = -1; }
       if (this.brew.marker <= 0) { this.brew.marker = 0; this.brew.dir = 1; }
-      this.drawBrewBar();
+    } else if (s.type === 'hold') {
+      const dir = (input.isDown('ArrowRight', 'KeyD') ? 1 : 0) - (input.isDown('ArrowLeft', 'KeyA') ? 1 : 0);
+      this.brew.value += dir * 0.46 * dt - 0.026 * dt;
+      this.brew.value = U.clamp(this.brew.value, 0.02, 0.98);
+      this.brew.timeLeft -= dt;
+      if (Math.abs(this.brew.value - s.target) <= s.span) this.brew.inZone += dt;
+      this.brew.stepScore = Math.max(0, Math.round(s.points * (this.brew.inZone / (s.duration || 1))));
+      this.brewFeedback.text = Math.abs(this.brew.value - s.target) <= s.span ? 'В зоне — держи' : 'Регулируй A / D';
+      this.brewFeedback.style.fill = Math.abs(this.brew.value - s.target) <= s.span ? 0xa8d08d : 0xc1a06a;
+      if (this.brew.timeLeft <= 0) {
+        this.brewFeedback.text = `Этап +${this.brew.stepScore}`;
+        this.game.audio.sfx(this.brew.stepScore >= s.points * 0.65 ? 'collectHoney' : 'ui');
+        this.completeBrewStep();
+        return;
+      }
+    } else if (s.type === 'balance') {
+      const dir = (input.isDown('ArrowRight', 'KeyD') ? 1 : 0) - (input.isDown('ArrowLeft', 'KeyA') ? 1 : 0);
+      this.brew.value += dir * 0.34 * dt;
+      this.brew.value = U.clamp(this.brew.value, 0.02, 0.98);
     }
+    this.drawBrewBar();
+    this.updateBrewGaugeText();
   }
 
   /* ================= МАГАЗИН ================= */
@@ -1729,11 +1960,11 @@ class UI {
     t.addChild(sub);
 
     this.travelRows = [];
-    const keys = ['home', 'brewery', 'mill', 'village'];
+    const keys = ['home', 'brewery', 'mill', 'village', 'dam'];
     keys.forEach((key, i) => {
       const p = TRAVEL_POINTS[key];
       const row = new PIXI.Container();
-      row.x = 390; row.y = 238 + i * 70;
+      row.x = 390; row.y = 226 + i * 62;
       const rb = new PIXI.Graphics();
       row.addChild(rb);
       const nm = makeText(p.name, {
@@ -1798,7 +2029,9 @@ class UI {
         ? point.sub
         : r.key === 'brewery'
           ? 'сначала дойди до пивоварни'
-          : `откроется по сюжету · день ${point.minDay}`;
+          : r.key === 'dam'
+            ? 'после городского заказа'
+            : `откроется по сюжету · день ${point.minDay}`;
     }
   }
 
@@ -1841,7 +2074,7 @@ class UI {
     c.addChild(rule);
 
     const lines = [
-      ['История', 'три дня · один берег'],
+      ['История', 'пять глав · один берег'],
       ['Графика', 'PixiJS · процедурная живопись'],
       ['Звук', 'Howler.js · Web Audio'],
       ['Атмосфера и музыка', 'ncase/wbwwb · CC0'],
@@ -1874,7 +2107,7 @@ class UI {
     btn.x = 640; btn.y = 604;
     c.addChild(btn);
 
-    const small = makeText('Три дня. Один берег. Одна история.', {
+    const small = makeText('Пять глав. Один берег. Одна история.', {
       fontFamily: FONT_UI, fontSize: 10.5, fill: 0x6e7c88, letterSpacing: 1.5,
     }, 0.5);
     small.x = 640; small.y = 666;
@@ -1914,6 +2147,8 @@ class UI {
     this.creditsOverlay.visible = false;
     this.titleOverlay.visible = false;
     this.prompt.visible = false;
+    this.tutorial.visible = false;
+    this.tutorialState = null;
     this.promptText = '';
     this.toastQueue.length = 0;
     this.toastActive = null;
@@ -1986,6 +2221,7 @@ class UI {
     this.titleTime += dt;
     this.updateFade(dt);
     this.updateToasts(dt);
+    this.updateTutorial(dt);
     if (this.dialogueActive) this.updateDialogue(dt);
     if (this.narrationActive) this.updateNarration(dt);
     if (this.brewingActive) this.updateBrewing(dt);

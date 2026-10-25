@@ -338,7 +338,7 @@ class NPC {
     this.walkSpeed = 60;
     this.fade = 1;
 
-    const builders = { vitya: buildVitya, zina: buildZina, stas: buildStas, grisha: buildGrisha, boris: buildBorisych, pavel: buildPavel, klava: buildKlava };
+    const builders = { vitya: buildVitya, zina: buildZina, stas: buildStas, grisha: buildGrisha, boris: buildBorisych, pavel: buildPavel, klava: buildKlava, arkady: buildArkady };
     const built = (builders[this.kind] || buildZina)();
     this.art = built;
     this.container = built.root;
@@ -517,7 +517,7 @@ class Collectible {
     const colors = {
       honey: 0xffb35c, hop: 0xc0cf82, water: 0x9cdcea,
       berries: 0xd47b8b, mushroom: 0xe0c9a0, herb: 0x9bbb72,
-      yeast: 0xe0c27a, flashlight: 0xaee8f2, lure: 0xffcf72,
+      yeast: 0xe0c27a, spring: 0xaee8f2, flashlight: 0xaee8f2, lure: 0xffcf72,
     };
     const color = colors[type] || 0xffca7a;
 
@@ -542,7 +542,7 @@ class Collectible {
       line(g, 8, 0, 16, 7, 1.5, 0x8f9c98);
     } else {
       const small = type === 'berries' || type === 'mushroom' || type === 'herb' || type === 'yeast';
-      drawItemIcon(g, type, 0, 0, small ? 1.08 : (type === 'honey' || type === 'water' ? 1.42 : 1.45));
+      drawItemIcon(g, type, 0, 0, small ? 1.08 : (type === 'honey' || type === 'water' || type === 'spring' ? 1.42 : 1.45));
     }
     this.art.addChild(g);
     this.container.addChild(this.art);
@@ -563,7 +563,7 @@ class Collectible {
     const colors = {
       honey: 0xffca7a, hop: 0xd7e0a0, water: 0xaee8f2,
       berries: 0xe2a4b0, mushroom: 0xe6d8bd, herb: 0xc1d7a0,
-      yeast: 0xf0dca8, flashlight: 0xaee8f2, lure: 0xffd88a,
+      yeast: 0xf0dca8, spring: 0xd6f5f8, flashlight: 0xaee8f2, lure: 0xffd88a,
     };
     const g = this.ring;
     g.clear();
